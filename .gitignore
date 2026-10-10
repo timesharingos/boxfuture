@@ -9,3 +9,4 @@ dist/
 *.db-shm
 scripts/.shots/
 *.tsbuildinfo
+.claude/settings.json
