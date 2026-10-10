@@ -65,7 +65,11 @@ async function main() {
   const app = await electron.launch({
     executablePath: electronBin,
     args: [APP_DIR],
-    timeout: 30000
+    timeout: 30000,
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: undefined
+    }
   })
 
   app.process().stdout.on('data', (d) => process.stdout.write(`[main stdout] ${d}`))
@@ -94,10 +98,13 @@ async function main() {
     await page.screenshot({ path: shotPath('01-landing') })
     console.log('landing screenshot saved')
 
-    // Add account
+    // Add account with initial deposits
     await clickText(page, 'Add account')
     await page.waitForTimeout(300)
-    await fillInput(page, 'Name', 'Checking')
+    await fillInput(page, 'Account name', 'Checking')
+    await fillInput(page, 'Initial cash balance (optional)', '1000')
+    await fillInput(page, 'Regular deposit name (optional)', 'Salary')
+    await fillInput(page, 'Regular deposit amount (optional)', '5000')
     await clickText(page, 'OK')
     await page.waitForTimeout(1000)
     console.log('errors so far:', await page.evaluate(() => window.__errors))
@@ -109,39 +116,21 @@ async function main() {
     // Select the new account in the sidebar
     await clickText(page, 'Checking')
     await waitForBodyText(page, 'Cash Flow')
-    await page.screenshot({ path: shotPath('03-account-selected') })
-
-    // Add one-time deposit
-    await clickText(page, 'Add one-time deposit')
-    await page.waitForTimeout(300)
-    await fillInput(page, 'Amount', '1000')
-    await fillInput(page, 'Description', 'Bonus')
-    await clickText(page, 'OK')
-    await page.waitForTimeout(1000)
-    console.log('errors after one-time deposit:', await page.evaluate(() => window.__errors))
-    await waitForModalClosed(page)
-    await page.waitForTimeout(500)
-    await page.screenshot({ path: shotPath('04-after-one-time-deposit') })
-
-    // Add regular deposit
-    await clickText(page, 'Add regular deposit')
-    await page.waitForTimeout(300)
-    await fillInput(page, 'Name', 'Salary')
-    await fillInput(page, 'Monthly amount', '5000')
-    await clickText(page, 'OK')
-    await waitForModalClosed(page)
-    await page.waitForTimeout(500)
-    await page.screenshot({ path: shotPath('05-after-regular-deposit') })
+    await page.screenshot({ path: shotPath('03-account-with-initial-deposits') })
 
     const bodyText = await page.evaluate(() => document.body.innerText)
     console.log('--- page text snapshot ---')
     console.log(bodyText)
 
+    // Verify initial state shows 1000 cash and 5000 AR
+    if (!bodyText.includes('1,000.00')) throw new Error('Initial cash should be 1000')
+    if (!bodyText.includes('5,000.00')) throw new Error('Initial AR should be 5000')
+
     // Navigate forward one month: October's salary should settle into cash flow,
     // and AR should reset to the new (November) accrual.
     await page.locator('.anticon-right').click()
     await page.waitForTimeout(800)
-    await page.screenshot({ path: shotPath('06-next-month') })
+    await page.screenshot({ path: shotPath('04-next-month') })
     const nextMonthText = await page.evaluate(() => document.body.innerText)
     console.log('--- next month text snapshot ---')
     console.log(nextMonthText)

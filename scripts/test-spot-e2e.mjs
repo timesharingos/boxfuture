@@ -65,7 +65,11 @@ async function main() {
   const app = await electron.launch({
     executablePath: electronBin,
     args: [APP_DIR],
-    timeout: 30000
+    timeout: 30000,
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: undefined
+    }
   })
 
   app.process().stdout.on('data', (d) => process.stdout.write(`[main stdout] ${d}`))
@@ -86,10 +90,13 @@ async function main() {
     await page.screenshot({ path: shotPath('01-landing') })
     console.log('landing screenshot saved')
 
-    // Create account
+    // Create account with initial deposits
     await clickText(page, 'Add account')
     await page.waitForTimeout(300)
-    await fillInput(page, 'Name', 'Checking')
+    await fillInput(page, 'Account name', 'Checking')
+    await fillInput(page, 'Initial cash balance (optional)', '10000')
+    await fillInput(page, 'Regular deposit name (optional)', 'Salary')
+    await fillInput(page, 'Regular deposit amount (optional)', '5000')
     await clickText(page, 'OK')
     await waitForModalClosed(page)
     await page.waitForTimeout(500)
@@ -102,24 +109,6 @@ async function main() {
     await clickText(page, 'Checking')
     await page.waitForTimeout(500)
 
-    // Add one-time deposit of 10000
-    await clickText(page, 'Add one-time deposit')
-    await page.waitForTimeout(300)
-    await fillInput(page, 'Amount', '10000')
-    await fillInput(page, 'Description', 'Initial cash')
-    await clickText(page, 'OK')
-    await waitForModalClosed(page)
-    await page.waitForTimeout(500)
-
-    // Add regular deposit (salary) of 5000/month
-    await clickText(page, 'Add regular deposit')
-    await page.waitForTimeout(300)
-    await fillInput(page, 'Name', 'Salary')
-    await fillInput(page, 'Monthly amount', '5000')
-    await clickText(page, 'OK')
-    await waitForModalClosed(page)
-    await page.waitForTimeout(500)
-
     await page.screenshot({ path: shotPath('02-before-spots') })
     console.log('Before spots: should show cash=10000, AR=5000')
 
@@ -130,12 +119,13 @@ async function main() {
     }
 
     // Test 1: Add spot paid from regular AR (2000)
-    await clickText(page, 'Add spot')
+    await clickText(page, 'Add transaction')
     await page.waitForTimeout(300)
+    // Should open modal with tabs, Spot tab should be active by default
     await fillInput(page, 'Amount', '2000')
     await fillInput(page, 'Description', 'Purchase 1')
     // Default payment method is 'regular-first'
-    await clickText(page, 'OK')
+    await clickText(page, 'Add Spot')
     await waitForModalClosed(page)
     await page.waitForTimeout(500)
 
@@ -147,14 +137,14 @@ async function main() {
     if (!bodyText.includes('3,000.00')) throw new Error('AR should be 3000 after consuming 2000')
 
     // Test 2: Add spot paid from one-time cash (1500)
-    await clickText(page, 'Add spot')
+    await clickText(page, 'Add transaction')
     await page.waitForTimeout(300)
     await fillInput(page, 'Amount', '1500')
     await fillInput(page, 'Description', 'Purchase 2')
     // Select one-time payment
     await page.locator('.ant-modal-wrap:visible input[value="onetime"]').click()
     await page.waitForTimeout(200)
-    await clickText(page, 'OK')
+    await clickText(page, 'Add Spot')
     await waitForModalClosed(page)
     await page.waitForTimeout(500)
 
@@ -166,12 +156,12 @@ async function main() {
     if (!bodyText.includes('3,000.00')) throw new Error('AR should still be 3000')
 
     // Test 3: Add hybrid spot (4000 = 3000 from regular + 1000 from one-time)
-    await clickText(page, 'Add spot')
+    await clickText(page, 'Add transaction')
     await page.waitForTimeout(300)
     await fillInput(page, 'Amount', '4000')
     await fillInput(page, 'Description', 'Big purchase')
     // Default is regular-first, which will use all 3000 AR then 1000 cash
-    await clickText(page, 'OK')
+    await clickText(page, 'Add Spot')
     await waitForModalClosed(page)
     await page.waitForTimeout(500)
 

@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { queries } from './queries.ts'
 
 export interface RateRow {
   amount: number
@@ -97,16 +98,10 @@ export function computeAccountState(
   const asOfDateStr = asOfDate.toISOString().slice(0, 10)
 
   const oneTimeTotal = (
-    db
-      .prepare(
-        'SELECT COALESCE(SUM(amount), 0) AS total FROM one_time_deposits WHERE account_id = ? AND date <= ?'
-      )
-      .get(accountId, asOfDateStr) as { total: number }
+    db.prepare(queries.selectOneTimeDepositsTotal).get(accountId, asOfDateStr) as { total: number }
   ).total
 
-  const streamRows = db
-    .prepare('SELECT id, name FROM regular_deposits WHERE account_id = ?')
-    .all(accountId) as StreamRow[]
+  const streamRows = db.prepare(queries.selectRegularDepositsByAccount).all(accountId) as StreamRow[]
 
   let regularRealizedTotal = 0
   let ar = 0
@@ -114,9 +109,7 @@ export function computeAccountState(
 
   for (const stream of streamRows) {
     const rates = db
-      .prepare(
-        'SELECT amount, effective_from_month FROM regular_deposit_rates WHERE regular_deposit_id = ? ORDER BY effective_from_month ASC'
-      )
+      .prepare(queries.selectRegularDepositRates)
       .all(stream.id) as RateRow[]
 
     regularRealizedTotal += realizedFromRegular(rates, asOfMonth)
@@ -134,9 +127,7 @@ export function computeAccountState(
 
   // Deduct spots: spots reduce AR (payment_from_regular) and one-time cash (payment_from_onetime)
   const spotRows = db
-    .prepare(
-      'SELECT payment_from_regular, payment_from_onetime FROM spots WHERE account_id = ? AND date <= ?'
-    )
+    .prepare(queries.selectSpotsBeforeDate)
     .all(accountId, asOfDateStr) as { payment_from_regular: number; payment_from_onetime: number }[]
 
   let totalSpotFromRegular = 0
@@ -149,9 +140,7 @@ export function computeAccountState(
   // Spots paid from regular this month reduce current AR
   const spotsFromRegularThisMonth = (
     db
-      .prepare(
-        'SELECT COALESCE(SUM(payment_from_regular), 0) AS total FROM spots WHERE account_id = ? AND date >= ? AND date <= ?'
-      )
+      .prepare(queries.selectSpotsForMonth2)
       .get(accountId, asOfMonth + '-01', asOfDateStr) as { total: number }
   ).total
 
@@ -181,7 +170,7 @@ export interface OverallState {
 }
 
 export function computeOverallState(db: Database.Database, asOfDate: Date): OverallState {
-  const accountRows = db.prepare('SELECT id FROM accounts').all() as { id: number }[]
+  const accountRows = db.prepare(queries.selectAllAccountIds).all() as { id: number }[]
   const accounts = accountRows.map((row) => computeAccountState(db, row.id, asOfDate))
   return {
     cashFlow: accounts.reduce((sum, a) => sum + a.cashFlow, 0),

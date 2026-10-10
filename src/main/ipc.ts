@@ -1,17 +1,16 @@
 import { ipcMain } from 'electron'
 import type Database from 'better-sqlite3'
 import { computeAccountState, computeOverallState, monthKey, addMonths } from './ledger'
+import { queries, createAccount, createOneTimeDeposit, createRegularDeposit, createRegularDepositRate, createSpot } from './queries'
 
 export function registerIpcHandlers(db: Database.Database): void {
   ipcMain.handle('accounts:list', () => {
-    return db.prepare('SELECT id, name, created_at FROM accounts ORDER BY id ASC').all()
+    return db.prepare(queries.selectAccounts).all()
   })
 
   ipcMain.handle('accounts:create', (_event, { name }: { name: string }) => {
     const createdAt = new Date().toISOString()
-    const result = db
-      .prepare('INSERT INTO accounts (name, created_at) VALUES (?, ?)')
-      .run(name, createdAt)
+    const result = createAccount(db, name, createdAt)
     return { id: result.lastInsertRowid as number, name, created_at: createdAt }
   })
 
@@ -27,11 +26,7 @@ export function registerIpcHandlers(db: Database.Database): void {
       }: { accountId: number; amount: number; date: string; description: string }
     ) => {
       const createdAt = new Date().toISOString()
-      const result = db
-        .prepare(
-          'INSERT INTO one_time_deposits (account_id, amount, date, description, created_at) VALUES (?, ?, ?, ?, ?)'
-        )
-        .run(accountId, amount, date, description ?? '', createdAt)
+      const result = createOneTimeDeposit(db, accountId, amount, date, description ?? '', createdAt)
       return { id: result.lastInsertRowid as number }
     }
   )
@@ -39,11 +34,7 @@ export function registerIpcHandlers(db: Database.Database): void {
   ipcMain.handle(
     'oneTimeDeposits:listForMonth',
     (_event, { accountId, month }: { accountId: number; month: string }) => {
-      return db
-        .prepare(
-          "SELECT id, amount, date, description, created_at FROM one_time_deposits WHERE account_id = ? AND strftime('%Y-%m', date) = ? ORDER BY date ASC"
-        )
-        .all(accountId, month)
+      return db.prepare(queries.selectOneTimeDepositsForMonth).all(accountId, month)
     }
   )
 
@@ -55,15 +46,9 @@ export function registerIpcHandlers(db: Database.Database): void {
     ) => {
       const createdAt = new Date().toISOString()
       const startMonth = monthKey(new Date())
-      const result = db
-        .prepare(
-          'INSERT INTO regular_deposits (account_id, name, created_at) VALUES (?, ?, ?)'
-        )
-        .run(accountId, name, createdAt)
+      const result = createRegularDeposit(db, accountId, name, createdAt)
       const regularDepositId = result.lastInsertRowid as number
-      db.prepare(
-        'INSERT INTO regular_deposit_rates (regular_deposit_id, amount, effective_from_month, created_at) VALUES (?, ?, ?, ?)'
-      ).run(regularDepositId, amount, startMonth, createdAt)
+      createRegularDepositRate(db, regularDepositId, amount, startMonth, createdAt)
       return { id: regularDepositId }
     }
   )
@@ -73,9 +58,7 @@ export function registerIpcHandlers(db: Database.Database): void {
     (_event, { regularDepositId, amount }: { regularDepositId: number; amount: number }) => {
       const createdAt = new Date().toISOString()
       const effectiveFromMonth = addMonths(monthKey(new Date()), 1)
-      db.prepare(
-        'INSERT INTO regular_deposit_rates (regular_deposit_id, amount, effective_from_month, created_at) VALUES (?, ?, ?, ?)'
-      ).run(regularDepositId, amount, effectiveFromMonth, createdAt)
+      createRegularDepositRate(db, regularDepositId, amount, effectiveFromMonth, createdAt)
       return { effectiveFromMonth }
     }
   )
@@ -121,19 +104,16 @@ export function registerIpcHandlers(db: Database.Database): void {
       }
     ) => {
       const createdAt = new Date().toISOString()
-      const result = db
-        .prepare(
-          'INSERT INTO spots (account_id, amount, date, description, payment_from_regular, payment_from_onetime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        )
-        .run(
-          accountId,
-          amount,
-          date,
-          description ?? '',
-          paymentFromRegular,
-          paymentFromOnetime,
-          createdAt
-        )
+      const result = createSpot(
+        db,
+        accountId,
+        amount,
+        date,
+        description ?? '',
+        paymentFromRegular,
+        paymentFromOnetime,
+        createdAt
+      )
       return { id: result.lastInsertRowid as number }
     }
   )
@@ -141,11 +121,7 @@ export function registerIpcHandlers(db: Database.Database): void {
   ipcMain.handle(
     'spots:listForMonth',
     (_event, { accountId, month }: { accountId: number; month: string }) => {
-      return db
-        .prepare(
-          "SELECT id, amount, date, description, payment_from_regular, payment_from_onetime, created_at FROM spots WHERE account_id = ? AND strftime('%Y-%m', date) = ? ORDER BY date ASC"
-        )
-        .all(accountId, month)
+      return db.prepare(queries.selectSpotsForMonth).all(accountId, month)
     }
   )
 

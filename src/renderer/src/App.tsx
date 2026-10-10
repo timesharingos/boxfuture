@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Layout, Menu, Button, Modal, Form, Input, message } from 'antd'
+import { Layout, Menu, Button, Modal, Form, Input, InputNumber, message } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import type { Account } from '../../preload/types'
 import Overview from './pages/Overview'
@@ -27,7 +27,27 @@ function App(): JSX.Element {
 
   async function handleAddAccount(): Promise<void> {
     const values = await form.validateFields()
-    await window.api.ledger.accounts.create({ name: values.name })
+    const account = await window.api.ledger.accounts.create({ name: values.name })
+
+    // Initialize one-time deposit if provided
+    if (values.initialCash && values.initialCash !== 0) {
+      await window.api.ledger.oneTimeDeposits.create({
+        accountId: account.id,
+        amount: values.initialCash,
+        date: new Date().toISOString().slice(0, 10),
+        description: 'Initial balance'
+      })
+    }
+
+    // Initialize regular deposit if provided
+    if (values.regularDepositName && values.regularDepositAmount) {
+      await window.api.ledger.regularDeposits.create({
+        accountId: account.id,
+        name: values.regularDepositName,
+        amount: values.regularDepositAmount
+      })
+    }
+
     form.resetFields()
     setAddAccountOpen(false)
     message.success('Account created')
@@ -82,10 +102,20 @@ function App(): JSX.Element {
         open={addAccountOpen}
         onOk={handleAddAccount}
         onCancel={() => setAddAccountOpen(false)}
+        width={600}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+          <Form.Item name="name" label="Account name" rules={[{ required: true }]}>
             <Input placeholder="e.g. Checking" />
+          </Form.Item>
+          <Form.Item name="initialCash" label="Initial cash balance (optional)">
+            <InputNumber style={{ width: '100%' }} placeholder="0" />
+          </Form.Item>
+          <Form.Item name="regularDepositName" label="Regular deposit name (optional)">
+            <Input placeholder="e.g. Salary" />
+          </Form.Item>
+          <Form.Item name="regularDepositAmount" label="Regular deposit amount (optional)">
+            <InputNumber style={{ width: '100%' }} placeholder="0" />
           </Form.Item>
         </Form>
       </Modal>

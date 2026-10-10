@@ -1,34 +1,16 @@
-import Database from 'better-sqlite3'
 import { computeAccountState, computeOverallState, monthKey, addMonths } from '../src/main/ledger.ts'
+import { createTestDb, assert, createAccount, createOneTimeDeposit, createRegularDeposit, createRegularDepositRate } from './test-helpers.mjs'
 
-function assert(cond, msg) {
-  if (!cond) {
-    console.error('FAIL:', msg)
-    process.exitCode = 1
-  } else {
-    console.log('ok:', msg)
-  }
-}
+const db = createTestDb()
 
-const db = new Database(':memory:')
-db.exec(`
-CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, created_at TEXT);
-CREATE TABLE one_time_deposits (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, amount REAL, date TEXT, description TEXT, created_at TEXT);
-CREATE TABLE regular_deposits (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, name TEXT, created_at TEXT, settlement_day INTEGER DEFAULT 1, period TEXT DEFAULT 'monthly');
-CREATE TABLE regular_deposit_rates (id INTEGER PRIMARY KEY AUTOINCREMENT, regular_deposit_id INTEGER, amount REAL, effective_from_month TEXT, created_at TEXT);
-`)
-
-const accId = db.prepare('INSERT INTO accounts (name, created_at) VALUES (?, ?)').run('Checking', 'now').lastInsertRowid
+const accId = createAccount(db, 'Checking', 'now').lastInsertRowid
 
 // scenario: "now" is 2026-10. Salary stream starts 2026-10 at 5000.
-db.prepare('INSERT INTO regular_deposits (account_id, name, created_at) VALUES (?, ?, ?)').run(accId, 'Salary', 'now')
-const streamId = db.prepare('SELECT id FROM regular_deposits WHERE account_id = ?').get(accId).id
-db.prepare('INSERT INTO regular_deposit_rates (regular_deposit_id, amount, effective_from_month, created_at) VALUES (?, ?, ?, ?)')
-  .run(streamId, 5000, '2026-10', 'now')
+const streamId = createRegularDeposit(db, accId, 'Salary', 'now').lastInsertRowid
+createRegularDepositRate(db, streamId, 5000, '2026-10', 'now')
 
 // one-time deposit of 1000 in October
-db.prepare('INSERT INTO one_time_deposits (account_id, amount, date, description, created_at) VALUES (?, ?, ?, ?, ?)')
-  .run(accId, 1000, '2026-10-05', 'bonus', 'now')
+createOneTimeDeposit(db, accId, 1000, '2026-10-05', 'bonus', 'now')
 
 // --- Test 1: viewing October itself (the start month) ---
 let state = computeAccountState(db, accId, new Date('2026-10-31'))

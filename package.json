@@ -9,16 +9,24 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "build:win": "electron-vite build && electron-builder --win",
+    "test": "node scripts/run-all-tests.mjs --all",
+    "test:unit": "node scripts/run-all-tests.mjs --unit",
     "test:ledger": "node scripts/run-with-electron-node.mjs scripts/test-ledger.mjs",
     "test:spot": "node scripts/run-with-electron-node.mjs scripts/test-spot-ledger.mjs",
+    "test:edge-cases": "node scripts/run-with-electron-node.mjs scripts/test-edge-cases.mjs",
+    "test:property": "node scripts/run-with-electron-node.mjs scripts/test-property-invariants.mjs",
     "test:e2e": "npm run build && node scripts/e2e-smoke.mjs",
-    "test:spot-e2e": "npm run build && node scripts/test-spot-e2e.mjs"
+    "test:spot-e2e": "npm run build && node scripts/test-spot-e2e.mjs",
+    "test:sorting-e2e": "npm run build && node scripts/test-sorting-e2e.mjs",
+    "test:m1-rule-e2e": "npm run build && node scripts/test-m1-rule-e2e.mjs",
+    "test:ui-edge-cases-e2e": "npm run build && node scripts/test-ui-edge-cases-e2e.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.2",
     "antd": "^5.22.0",
     "better-sqlite3": "^12.5.0",
     "dayjs": "^1.11.13",
+    "electron": "^39.8.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -28,7 +36,6 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
-    "electron": "^39.2.6",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "playwright-core": "^1.64.0",

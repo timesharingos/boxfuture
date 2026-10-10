@@ -1,78 +1,27 @@
-import Database from 'better-sqlite3'
 import { computeAccountState, monthKey } from '../src/main/ledger.ts'
+import { createTestDb, createAccount, createRegularDeposit, createRegularDepositRate, createOneTimeDeposit, createSpot } from './test-helpers.mjs'
+import { queries } from '../src/main/queries.ts'
 
-const db = new Database(':memory:')
-
-db.exec(`
-CREATE TABLE accounts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE one_time_deposits (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  account_id INTEGER NOT NULL REFERENCES accounts(id),
-  amount REAL NOT NULL,
-  date TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE regular_deposits (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  account_id INTEGER NOT NULL REFERENCES accounts(id),
-  name TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  settlement_day INTEGER NOT NULL DEFAULT 1,
-  period TEXT NOT NULL DEFAULT 'monthly'
-);
-
-CREATE TABLE regular_deposit_rates (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  regular_deposit_id INTEGER NOT NULL REFERENCES regular_deposits(id),
-  amount REAL NOT NULL,
-  effective_from_month TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE spots (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  account_id INTEGER NOT NULL REFERENCES accounts(id),
-  amount REAL NOT NULL,
-  date TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
-  payment_from_regular REAL NOT NULL DEFAULT 0,
-  payment_from_onetime REAL NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
-);
-`)
+const db = createTestDb()
 
 const now = new Date().toISOString()
-const accountId = db.prepare('INSERT INTO accounts (name, created_at) VALUES (?, ?)').run('Test', now)
-  .lastInsertRowid
+const accountId = createAccount(db, 'Test', now).lastInsertRowid
 
 // Scenario 1: Spot paid from regular AR reduces current month AR
 console.log('=== Test 1: Spot from regular reduces current AR ===')
-db.prepare('DELETE FROM regular_deposits').run()
-db.prepare('DELETE FROM regular_deposit_rates').run()
-db.prepare('DELETE FROM spots').run()
-db.prepare('DELETE FROM one_time_deposits').run()
+db.prepare(queries.deleteRegularDeposits).run()
+db.prepare(queries.deleteRegularDepositRates).run()
+db.prepare(queries.deleteSpots).run()
+db.prepare(queries.deleteOneTimeDeposits).run()
 
-const regularId = db
-  .prepare('INSERT INTO regular_deposits (account_id, name, created_at) VALUES (?, ?, ?)')
-  .run(accountId, 'Salary', now).lastInsertRowid
-db.prepare(
-  'INSERT INTO regular_deposit_rates (regular_deposit_id, amount, effective_from_month, created_at) VALUES (?, ?, ?, ?)'
-).run(regularId, 5000, '2026-10', now)
+const regularId = createRegularDeposit(db, accountId, 'Salary', now).lastInsertRowid
+createRegularDepositRate(db, regularId, 5000, '2026-10', now)
 
 let state = computeAccountState(db, accountId, new Date('2026-10-15'))
 console.log('Before spot: AR =', state.ar, '(expected 5000)')
 if (state.ar !== 5000) throw new Error('AR should be 5000 before spot')
 
-db.prepare(
-  'INSERT INTO spots (account_id, amount, date, description, payment_from_regular, payment_from_onetime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-).run(accountId, 1000, '2026-10-10', 'Purchase', 1000, 0, now)
+createSpot(db, accountId, 1000, '2026-10-10', 'Purchase', 1000, 0, now)
 
 state = computeAccountState(db, accountId, new Date('2026-10-15'))
 console.log('After spot: AR =', state.ar, '(expected 4000)')
@@ -81,10 +30,8 @@ console.log('✓ Spot from regular reduces current AR')
 
 // Scenario 2: Spot from regular in past month reduces realized cash when month settles
 console.log('\n=== Test 2: Spot from regular reduces realized cash at settlement ===')
-db.prepare('DELETE FROM spots').run()
-db.prepare(
-  'INSERT INTO spots (account_id, amount, date, description, payment_from_regular, payment_from_onetime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-).run(accountId, 1000, '2026-10-10', 'Purchase', 1000, 0, now)
+db.prepare(queries.deleteSpots).run()
+createSpot(db, accountId, 1000, '2026-10-10', 'Purchase', 1000, 0, now)
 
 state = computeAccountState(db, accountId, new Date('2026-11-15'))
 console.log('November cash flow =', state.cashFlow, '(expected 4000)')
@@ -98,22 +45,18 @@ console.log('✓ Spot from regular reduces realized cash at settlement')
 
 // Scenario 3: Spot from one-time reduces one-time cash immediately
 console.log('\n=== Test 3: Spot from one-time reduces cash immediately ===')
-db.prepare('DELETE FROM spots').run()
-db.prepare('DELETE FROM one_time_deposits').run()
-db.prepare('DELETE FROM regular_deposit_rates').run()
-db.prepare('DELETE FROM regular_deposits').run()
+db.prepare(queries.deleteSpots).run()
+db.prepare(queries.deleteOneTimeDeposits).run()
+db.prepare(queries.deleteRegularDepositRates).run()
+db.prepare(queries.deleteRegularDeposits).run()
 
-db.prepare(
-  'INSERT INTO one_time_deposits (account_id, amount, date, description, created_at) VALUES (?, ?, ?, ?, ?)'
-).run(accountId, 10000, '2026-10-01', 'Bonus', now)
+createOneTimeDeposit(db, accountId, 10000, '2026-10-01', 'Bonus', now)
 
 state = computeAccountState(db, accountId, new Date('2026-10-05'))
 console.log('Before spot: cash flow =', state.cashFlow, '(expected 10000)')
 if (state.cashFlow !== 10000) throw new Error('Cash flow should be 10000 before spot')
 
-db.prepare(
-  'INSERT INTO spots (account_id, amount, date, description, payment_from_regular, payment_from_onetime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-).run(accountId, 3000, '2026-10-03', 'Purchase', 0, 3000, now)
+createSpot(db, accountId, 3000, '2026-10-03', 'Purchase', 0, 3000, now)
 
 state = computeAccountState(db, accountId, new Date('2026-10-05'))
 console.log('After spot: cash flow =', state.cashFlow, '(expected 7000)')
@@ -122,7 +65,7 @@ console.log('✓ Spot from one-time reduces cash immediately')
 
 // Scenario 4: Hybrid payment (regular + one-time)
 console.log('\n=== Test 4: Hybrid payment (regular + one-time) ===')
-db.prepare('DELETE FROM spots').run()
+db.prepare(queries.deleteSpots).run()
 db.prepare('DELETE FROM one_time_deposits').run()
 db.prepare('DELETE FROM regular_deposit_rates').run()
 db.prepare('DELETE FROM regular_deposits').run()
