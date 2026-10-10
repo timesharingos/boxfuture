@@ -10,6 +10,22 @@ function shotPath(name) {
   return path.join(SHOT_DIR, `${name}.png`)
 }
 
+async function fillDate(page, dateString) {
+  // Clear the input first
+  const dateInput = page.locator('.ant-modal-wrap:visible .ant-picker input')
+  await dateInput.click()
+  await dateInput.fill('')
+  await page.waitForTimeout(100)
+
+  // Fill the date
+  await dateInput.fill(dateString)
+  await page.waitForTimeout(200)
+
+  // Press Enter to confirm the date
+  await dateInput.press('Enter')
+  await page.waitForTimeout(200)
+}
+
 async function clickText(page, text) {
   const result = await page.evaluate((t) => {
     function isVisible(el) {
@@ -98,8 +114,7 @@ async function main() {
     await clickText(page, 'Add transaction')
     await page.waitForTimeout(300)
     await fillInput(page, 'Amount', '500')
-    await page.locator('.ant-modal-wrap:visible .ant-picker input').fill('2026-10-05')
-    await page.waitForTimeout(200)
+    await fillDate(page, '2026-10-05')
     await fillInput(page, 'Description', 'Groceries')
     await clickText(page, 'Add Spot')
     await waitForModalClosed(page)
@@ -109,8 +124,7 @@ async function main() {
     await clickText(page, 'Add transaction')
     await page.waitForTimeout(300)
     await fillInput(page, 'Amount', '1500')
-    await page.locator('.ant-modal-wrap:visible .ant-picker input').fill('2026-10-03')
-    await page.waitForTimeout(200)
+    await fillDate(page, '2026-10-03')
     await fillInput(page, 'Description', 'Rent')
     await clickText(page, 'Add Spot')
     await waitForModalClosed(page)
@@ -120,8 +134,7 @@ async function main() {
     await clickText(page, 'Add transaction')
     await page.waitForTimeout(300)
     await fillInput(page, 'Amount', '200')
-    await page.locator('.ant-modal-wrap:visible .ant-picker input').fill('2026-10-07')
-    await page.waitForTimeout(200)
+    await fillDate(page, '2026-10-07')
     await fillInput(page, 'Description', 'Coffee')
     await clickText(page, 'Add Spot')
     await waitForModalClosed(page)
@@ -131,8 +144,7 @@ async function main() {
     await clickText(page, 'Add transaction')
     await page.waitForTimeout(300)
     await fillInput(page, 'Amount', '3000')
-    await page.locator('.ant-modal-wrap:visible .ant-picker input').fill('2026-10-01')
-    await page.waitForTimeout(200)
+    await fillDate(page, '2026-10-01')
     await fillInput(page, 'Description', 'Car payment')
     await clickText(page, 'Add Spot')
     await waitForModalClosed(page)

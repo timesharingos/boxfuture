@@ -127,6 +127,12 @@ async function main() {
       // Clean database before each E2E test to ensure clean state
       await runTest(test.name, test.script, true)
     }
+
+    // Clean up database after all E2E tests complete
+    console.log('\n' + '─'.repeat(60))
+    console.log('  CLEANING UP')
+    console.log('─'.repeat(60))
+    cleanDatabase()
   }
 
   // Print summary
