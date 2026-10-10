@@ -1,0 +1,13 @@
+appId: com.boxfutures.app
+productName: Balance Tracker
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**/*
+  - package.json
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
