@@ -132,11 +132,43 @@ export function computeAccountState(
     })
   }
 
+  // Deduct spots: spots reduce AR (payment_from_regular) and one-time cash (payment_from_onetime)
+  const spotRows = db
+    .prepare(
+      'SELECT payment_from_regular, payment_from_onetime FROM spots WHERE account_id = ? AND date <= ?'
+    )
+    .all(accountId, asOfDateStr) as { payment_from_regular: number; payment_from_onetime: number }[]
+
+  let totalSpotFromRegular = 0
+  let totalSpotFromOnetime = 0
+  for (const spot of spotRows) {
+    totalSpotFromRegular += spot.payment_from_regular
+    totalSpotFromOnetime += spot.payment_from_onetime
+  }
+
+  // Spots paid from regular this month reduce current AR
+  const spotsFromRegularThisMonth = (
+    db
+      .prepare(
+        'SELECT COALESCE(SUM(payment_from_regular), 0) AS total FROM spots WHERE account_id = ? AND date >= ? AND date <= ?'
+      )
+      .get(accountId, asOfMonth + '-01', asOfDateStr) as { total: number }
+  ).total
+
+  ar -= spotsFromRegularThisMonth
+
+  // Spots paid from regular in past months reduce realized total (they consumed AR at settlement time)
+  const spotsFromRegularBeforeThisMonth = totalSpotFromRegular - spotsFromRegularThisMonth
+  regularRealizedTotal -= spotsFromRegularBeforeThisMonth
+
+  // Spots paid from one-time reduce one-time total
+  const adjustedOneTimeTotal = oneTimeTotal - totalSpotFromOnetime
+
   return {
     accountId,
-    cashFlow: oneTimeTotal + regularRealizedTotal,
+    cashFlow: adjustedOneTimeTotal + regularRealizedTotal,
     ar,
-    oneTimeTotal,
+    oneTimeTotal: adjustedOneTimeTotal,
     regularRealizedTotal,
     streams
   }

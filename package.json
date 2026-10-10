@@ -10,7 +10,9 @@
     "build": "electron-vite build",
     "build:win": "electron-vite build && electron-builder --win",
     "test:ledger": "node scripts/run-with-electron-node.mjs scripts/test-ledger.mjs",
-    "test:e2e": "npm run build && node scripts/e2e-smoke.mjs"
+    "test:spot": "node scripts/run-with-electron-node.mjs scripts/test-spot-ledger.mjs",
+    "test:e2e": "npm run build && node scripts/e2e-smoke.mjs",
+    "test:spot-e2e": "npm run build && node scripts/test-spot-e2e.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.2",

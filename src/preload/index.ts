@@ -19,6 +19,20 @@ const ledger = {
     listForAccount: (args: { accountId: number }) =>
       ipcRenderer.invoke('regularDeposits:listForAccount', args)
   },
+  spots: {
+    create: (args: {
+      accountId: number
+      amount: number
+      date: string
+      description: string
+      paymentFromRegular: number
+      paymentFromOnetime: number
+    }) => ipcRenderer.invoke('spots:create', args),
+    listForMonth: (args: { accountId: number; month: string }) =>
+      ipcRenderer.invoke('spots:listForMonth', args),
+    computeAvailablePayment: (args: { accountId: number; asOfDate: string }) =>
+      ipcRenderer.invoke('spots:computeAvailablePayment', args)
+  },
   compute: {
     accountState: (args: { accountId: number; asOfDate: string }) =>
       ipcRenderer.invoke('compute:accountState', args),

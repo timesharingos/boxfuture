@@ -18,6 +18,16 @@ export interface RegularDepositSummary {
   created_at: string
 }
 
+export interface Spot {
+  id: number
+  amount: number
+  date: string
+  description: string
+  payment_from_regular: number
+  payment_from_onetime: number
+  created_at: string
+}
+
 export type StreamStatus = 'not_started' | 'accruing'
 
 export interface StreamState {
@@ -63,6 +73,21 @@ export interface LedgerApi {
       amount: number
     }) => Promise<{ effectiveFromMonth: string }>
     listForAccount: (args: { accountId: number }) => Promise<RegularDepositSummary[]>
+  }
+  spots: {
+    create: (args: {
+      accountId: number
+      amount: number
+      date: string
+      description: string
+      paymentFromRegular: number
+      paymentFromOnetime: number
+    }) => Promise<{ id: number }>
+    listForMonth: (args: { accountId: number; month: string }) => Promise<Spot[]>
+    computeAvailablePayment: (args: {
+      accountId: number
+      asOfDate: string
+    }) => Promise<{ availableAR: number; availableCash: number }>
   }
   compute: {
     accountState: (args: { accountId: number; asOfDate: string }) => Promise<AccountState>

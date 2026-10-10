@@ -18,6 +18,25 @@ The ledger is **append-only** — nothing is ever deleted. Every action becomes 
 ### Account
 A logical representation of a real-world account (checking, savings, etc.). Each account independently tracks its own AR and cash flow.
 
+### Primitive: Spot
+An instant transaction that consumes existing balance. Spots are the primary way users record expenses and income adjustments.
+
+**Payment methods:**
+- **Regular-first (default)**: Uses as much regular AR as available, then falls back to one-time cash for any remainder
+- **One-time only**: Paid entirely from one-time cash
+- **Manual override**: User specifies exact amounts from regular AR and one-time cash
+
+**Timing:**
+- Spots can only be added for current or future months (not past months)
+- A spot paid from regular AR reduces the current month's AR immediately
+- When the month settles, the reduced AR translates to reduced cash flow
+- A spot paid from one-time cash reduces cash flow immediately
+
+**Examples:**
+- $2000 expense with $5000 AR available → uses $2000 from AR, leaving $3000 AR
+- $6000 expense with $5000 AR → uses all $5000 AR + $1000 from one-time cash
+- Negative amounts represent income/refunds (increase balance instead of reducing it)
+
 ### One-time deposit
 A single transaction: income (positive amount) or expense (negative amount). Examples: lottery winnings, company bonus, a purchase. Cannot recur.
 
@@ -63,8 +82,14 @@ npm run build
 # Run ledger unit tests (pure accrual math)
 npm run test:ledger
 
+# Run spot primitive unit tests
+npm run test:spot
+
 # Run end-to-end UI smoke tests (requires a production build first)
 npm run test:e2e
+
+# Run spot primitive E2E tests (requires a production build first)
+npm run test:spot-e2e
 ```
 
 ## Project structure

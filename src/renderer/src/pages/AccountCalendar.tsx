@@ -9,6 +9,7 @@ import {
   InputNumber,
   List,
   Modal,
+  Radio,
   Row,
   Statistic,
   Table,
@@ -19,7 +20,8 @@ import dayjs from 'dayjs'
 import type {
   AccountState,
   OneTimeDeposit,
-  RegularDepositSummary
+  RegularDepositSummary,
+  Spot
 } from '../../../preload/types'
 import { addMonths, monthEndDate } from '../lib/month'
 
@@ -31,22 +33,27 @@ interface Props {
 function AccountCalendar({ accountId, month }: Props): JSX.Element {
   const [state, setState] = useState<AccountState | null>(null)
   const [deposits, setDeposits] = useState<OneTimeDeposit[]>([])
+  const [spots, setSpots] = useState<Spot[]>([])
   const [streams, setStreams] = useState<RegularDepositSummary[]>([])
   const [addDepositOpen, setAddDepositOpen] = useState(false)
+  const [addSpotOpen, setAddSpotOpen] = useState(false)
   const [addRegularOpen, setAddRegularOpen] = useState(false)
   const [changeRateTarget, setChangeRateTarget] = useState<RegularDepositSummary | null>(null)
   const [depositForm] = Form.useForm()
+  const [spotForm] = Form.useForm()
   const [regularForm] = Form.useForm()
   const [rateForm] = Form.useForm()
 
   async function refresh(): Promise<void> {
-    const [accountState, monthDeposits, regularStreams] = await Promise.all([
+    const [accountState, monthDeposits, monthSpots, regularStreams] = await Promise.all([
       window.api.ledger.compute.accountState({ accountId, asOfDate: monthEndDate(month) }),
       window.api.ledger.oneTimeDeposits.listForMonth({ accountId, month }),
+      window.api.ledger.spots.listForMonth({ accountId, month }),
       window.api.ledger.regularDeposits.listForAccount({ accountId })
     ])
     setState(accountState)
     setDeposits(monthDeposits)
+    setSpots(monthSpots)
     setStreams(regularStreams)
   }
 
@@ -94,6 +101,46 @@ function AccountCalendar({ accountId, month }: Props): JSX.Element {
     await refresh()
   }
 
+  async function handleAddSpot(): Promise<void> {
+    const values = await spotForm.validateFields()
+    const spotDate = values.date.format('YYYY-MM-DD')
+    const spotAmount = values.amount
+    const paymentMethod = values.paymentMethod ?? 'regular-first'
+
+    // Get available payment sources as of the spot date
+    const available = await window.api.ledger.spots.computeAvailablePayment({
+      accountId,
+      asOfDate: spotDate
+    })
+
+    let paymentFromRegular = 0
+    let paymentFromOnetime = 0
+
+    if (paymentMethod === 'regular-first' || paymentMethod === 'hybrid') {
+      paymentFromRegular = Math.min(spotAmount, available.availableAR)
+      paymentFromOnetime = spotAmount - paymentFromRegular
+    } else if (paymentMethod === 'onetime') {
+      paymentFromOnetime = spotAmount
+    } else if (paymentMethod === 'manual') {
+      paymentFromRegular = values.manualRegular ?? 0
+      paymentFromOnetime = values.manualOnetime ?? 0
+    }
+
+    await window.api.ledger.spots.create({
+      accountId,
+      amount: spotAmount,
+      date: spotDate,
+      description: values.description ?? '',
+      paymentFromRegular,
+      paymentFromOnetime
+    })
+
+    spotForm.resetFields()
+    setAddSpotOpen(false)
+    message.success('Spot transaction added')
+    await refresh()
+  }
+
   const streamStateById = new Map(state?.streams.map((s) => [s.id, s]))
   const nextMonthLabel = addMonths(month, 1)
 
@@ -125,6 +172,36 @@ function AccountCalendar({ accountId, month }: Props): JSX.Element {
             { title: 'Date', dataIndex: 'date' },
             { title: 'Amount', dataIndex: 'amount', render: (v: number) => v.toFixed(2) },
             { title: 'Description', dataIndex: 'description' }
+          ]}
+        />
+      </Card>
+
+      <Card
+        title="Spot transactions this month"
+        style={{ marginTop: 24 }}
+        extra={<Button onClick={() => setAddSpotOpen(true)}>Add spot</Button>}
+      >
+        <Table
+          rowKey="id"
+          dataSource={spots}
+          pagination={false}
+          columns={[
+            { title: 'Date', dataIndex: 'date' },
+            { title: 'Amount', dataIndex: 'amount', render: (v: number) => v.toFixed(2) },
+            { title: 'Description', dataIndex: 'description' },
+            {
+              title: 'Payment',
+              render: (_: unknown, record: Spot) => (
+                <span>
+                  {record.payment_from_regular > 0 && (
+                    <Tag color="gold">Regular: {record.payment_from_regular.toFixed(2)}</Tag>
+                  )}
+                  {record.payment_from_onetime > 0 && (
+                    <Tag color="blue">One-time: {record.payment_from_onetime.toFixed(2)}</Tag>
+                  )}
+                </span>
+              )
+            }
           ]}
         />
       </Card>
@@ -209,6 +286,50 @@ function AccountCalendar({ accountId, month }: Props): JSX.Element {
         <Form form={rateForm} layout="vertical">
           <Form.Item name="amount" label="New monthly amount" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Add spot transaction"
+        open={addSpotOpen}
+        onOk={handleAddSpot}
+        onCancel={() => setAddSpotOpen(false)}
+      >
+        <Form
+          form={spotForm}
+          layout="vertical"
+          initialValues={{ date: dayjs(`${month}-01`), paymentMethod: 'regular-first' }}
+        >
+          <Form.Item name="amount" label="Amount" rules={[{ required: true }]}>
+            <InputNumber style={{ width: '100%' }} placeholder="Positive = expense" />
+          </Form.Item>
+          <Form.Item name="date" label="Date" rules={[{ required: true }]}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="description" label="Description">
+            <Input />
+          </Form.Item>
+          <Form.Item name="paymentMethod" label="Payment method">
+            <Radio.Group>
+              <Radio value="regular-first">Regular first (default)</Radio>
+              <Radio value="onetime">One-time only</Radio>
+              <Radio value="manual">Manual override</Radio>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, curr) => prev.paymentMethod !== curr.paymentMethod}>
+            {({ getFieldValue }) =>
+              getFieldValue('paymentMethod') === 'manual' ? (
+                <>
+                  <Form.Item name="manualRegular" label="From regular AR">
+                    <InputNumber style={{ width: '100%' }} />
+                  </Form.Item>
+                  <Form.Item name="manualOnetime" label="From one-time cash">
+                    <InputNumber style={{ width: '100%' }} />
+                  </Form.Item>
+                </>
+              ) : null
+            }
           </Form.Item>
         </Form>
       </Modal>

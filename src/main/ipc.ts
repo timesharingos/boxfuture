@@ -99,4 +99,67 @@ export function registerIpcHandlers(db: Database.Database): void {
   ipcMain.handle('compute:overallState', (_event, { asOfDate }: { asOfDate: string }) => {
     return computeOverallState(db, new Date(asOfDate))
   })
+
+  ipcMain.handle(
+    'spots:create',
+    (
+      _event,
+      {
+        accountId,
+        amount,
+        date,
+        description,
+        paymentFromRegular,
+        paymentFromOnetime
+      }: {
+        accountId: number
+        amount: number
+        date: string
+        description: string
+        paymentFromRegular: number
+        paymentFromOnetime: number
+      }
+    ) => {
+      const createdAt = new Date().toISOString()
+      const result = db
+        .prepare(
+          'INSERT INTO spots (account_id, amount, date, description, payment_from_regular, payment_from_onetime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run(
+          accountId,
+          amount,
+          date,
+          description ?? '',
+          paymentFromRegular,
+          paymentFromOnetime,
+          createdAt
+        )
+      return { id: result.lastInsertRowid as number }
+    }
+  )
+
+  ipcMain.handle(
+    'spots:listForMonth',
+    (_event, { accountId, month }: { accountId: number; month: string }) => {
+      return db
+        .prepare(
+          "SELECT id, amount, date, description, payment_from_regular, payment_from_onetime, created_at FROM spots WHERE account_id = ? AND strftime('%Y-%m', date) = ? ORDER BY date ASC"
+        )
+        .all(accountId, month)
+    }
+  )
+
+  ipcMain.handle(
+    'spots:computeAvailablePayment',
+    (
+      _event,
+      { accountId, asOfDate }: { accountId: number; asOfDate: string }
+    ): { availableAR: number; availableCash: number } => {
+      const state = computeAccountState(db, accountId, new Date(asOfDate))
+      return {
+        availableAR: state.ar,
+        availableCash: state.oneTimeTotal
+      }
+    }
+  )
 }

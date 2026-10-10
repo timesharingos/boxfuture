@@ -42,6 +42,20 @@ CREATE TABLE IF NOT EXISTS regular_deposit_rates (
 
 CREATE INDEX IF NOT EXISTS idx_regular_deposit_rates_stream
   ON regular_deposit_rates(regular_deposit_id, effective_from_month);
+
+CREATE TABLE IF NOT EXISTS spots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  amount REAL NOT NULL,
+  date TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  payment_from_regular REAL NOT NULL DEFAULT 0,
+  payment_from_onetime REAL NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_spots_account_date
+  ON spots(account_id, date);
 `
 
 export function getDb(): Database.Database {
