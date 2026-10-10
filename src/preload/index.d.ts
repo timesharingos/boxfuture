@@ -1,10 +1,4 @@
-export interface ExposedApi {
-  versions: {
-    node: string
-    chrome: string
-    electron: string
-  }
-}
+import type { ExposedApi } from './types'
 
 declare global {
   interface Window {
