@@ -1,8 +1,8 @@
-import { t } from "../lib/i18n";
+﻿import { t } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { useBudget, useCapacity, useCash, useHabit, usePnl, useRealization } from "../lib/queries";
-import { addMonths, cls, monthLabel, pct, shortMonth, yuan } from "../lib/format";
-import { Card, Empty, Field, Input, Stat } from "../components/ui";
+import { addMonths, cls, isFutureMonth, monthLabel, pct, shortMonth, yuan } from "../lib/format";
+import { Badge, Card, Empty, Field, Input, Stat } from "../components/ui";
 import { useMonth } from "../App";
 
 type Tab = "pnl" | "cash" | "budget" | "habit" | "capacity" | "realize";
@@ -146,7 +146,7 @@ function PnlView({ from, to }: { from: string; to: string }) {
           <tbody>
             {d.months.map((m) => (
               <tr key={m.month}>
-                <td className="num text-slate-300">{monthLabel(m.month)}</td>
+                <td className="num text-slate-300">{monthLabel(m.month)}{isFutureMonth(m.month) && <Badge tone="violet" className="ml-1">{t("预测")}</Badge>}</td>
                 <td className="num text-right text-emerald-400">{yuan(m.income)}</td>
                 <td className="num text-right text-rose-300">{yuan(m.expense)}</td>
                 <td className={"num text-right " + (m.net < 0 ? "text-rose-400" : "text-slate-100")}>
@@ -214,7 +214,7 @@ function CashView({ from, to }: { from: string; to: string }) {
               <tbody>
                 {d.months.map((m) => (
                   <tr key={m.month}>
-                    <td className="num text-slate-300">{monthLabel(m.month)}</td>
+                    <td className="num text-slate-300">{monthLabel(m.month)}{isFutureMonth(m.month) && <Badge tone="violet" className="ml-1">{t("预测")}</Badge>}</td>
                     <td className="num text-right text-sky-300">{yuan(m.inflow)}</td>
                     <td className="num text-right text-amber-300">{yuan(m.outflow)}</td>
                     <td className="num text-right">{yuan(m.net)}</td>
@@ -348,7 +348,7 @@ function HabitView({ toMonth }: { toMonth: string }) {
               <tbody>
                 {d.months.map((m) => (
                   <tr key={m.month}>
-                    <td className="num text-slate-300">{monthLabel(m.month)}</td>
+                    <td className="num text-slate-300">{monthLabel(m.month)}{isFutureMonth(m.month) && <Badge tone="violet" className="ml-1">{t("预测")}</Badge>}</td>
                     <td className="num text-right">{m.orders}</td>
                     <td className="num text-right">{yuan(m.total)}</td>
                     <td className="num text-right text-amber-300">{m.rolled}</td>
@@ -506,7 +506,7 @@ function RealizeView({ from, to }: { from: string; to: string }) {
               const r = Math.min(1, Math.max(0, m.ratio));
               return (
                 <tr key={m.month}>
-                  <td className="num text-slate-300">{monthLabel(m.month)}</td>
+                  <td className="num text-slate-300">{monthLabel(m.month)}{isFutureMonth(m.month) && <Badge tone="violet" className="ml-1">{t("预测")}</Badge>}</td>
                   <td className="num text-right">{yuan(m.quota)}</td>
                   <td className="num text-right text-emerald-400">{yuan(m.realized)}</td>
                   <td className={cls("num text-right", left > 0 ? "text-amber-300" : "text-slate-500")}>

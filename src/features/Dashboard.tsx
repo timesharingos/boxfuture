@@ -1,6 +1,14 @@
 import { Link } from "react-router-dom";
-import { useAccounts, useCapacity, useForward, useObligations } from "../lib/queries";
-import { accountKindLabel, monthLabel, obligationStatusLabel, poolLabel, shortMonth, yuan } from "../lib/format";
+import { useAccounts, useCapacity, useForward, useObligations, useRealization } from "../lib/queries";
+import {
+  accountKindLabel,
+  isFutureMonth,
+  monthLabel,
+  obligationStatusLabel,
+  poolLabel,
+  shortMonth,
+  yuan,
+} from "../lib/format";
 import { Badge, Card, Empty, SectionTitle, Stat } from "../components/ui";
 import { useMonth } from "../App";
 import { useT } from "../lib/i18n";
@@ -13,6 +21,7 @@ export default function Dashboard() {
   const forward = useForward(12, month);
   const capacity = useCapacity(month);
   const obligations = useObligations(false);
+  const realization = useRealization(month, month);
 
   const accounts = (accountsQuery.data ?? []).filter((a) => !a.archived);
   const recurringTotal = accounts.reduce((s, a) => s + a.recurringBalance, 0);
@@ -26,6 +35,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
+      {isFutureMonth(month) && (
+        <div className="flex items-center gap-2">
+          <Badge tone="violet">{t("实时预测")}</Badge>
+          <span className="text-[11px] text-slate-500">
+            {t("该月尚未开始，以下数字由「模拟月结」推算")}
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat
           label={t("{{m}} 规律可用", { m: monthLabel(month) })}
@@ -200,6 +217,38 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+
+      <Card className="card-pad">
+        <div className="flex items-baseline justify-between">
+          <div className="section-title">{t("兑现比例")}</div>
+          <div className="num text-[13px] font-semibold text-rose-300">
+            {Math.round((realization.data?.ratio ?? 0) * 100)}%
+          </div>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+          <div
+            className="h-full bg-rose-500"
+            style={{
+              width: `${Math.min(100, Math.max(0, (realization.data?.ratio ?? 0) * 100))}%`,
+            }}
+          />
+        </div>
+        <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+          <span>
+            {t("已兑现 {{a}} / 额度 {{b}}", {
+              a: yuan(realization.data?.totalRealized ?? 0),
+              b: yuan(realization.data?.totalQuota ?? 0),
+            })}
+          </span>
+          <span className="text-amber-300/80">
+            {t("欠兑现 {{x}}", {
+              x: yuan(
+                (realization.data?.totalQuota ?? 0) - (realization.data?.totalRealized ?? 0),
+              ),
+            })}
+          </span>
+        </div>
+      </Card>
     </div>
   );
 }

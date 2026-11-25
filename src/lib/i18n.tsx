@@ -424,6 +424,12 @@ const EN: Record<string, string> = {
   "按月": "By month",
   "按供应商": "By vendor",
   "按账户": "By account",
+  "预测": "Forecast",
+  "实时预测": "Live forecast",
+  "该月尚未开始，以下数字由「模拟月结」推算":
+    "This month hasn't started; the figures below come from the simulated close",
+  "已兑现 {{a}} / 额度 {{b}}": "Realized {{a}} / quota {{b}}",
+  "欠兑现 {{x}}": "Owed {{x}}",
   "构成": "Breakdown",
   "收入合计": "Total income",
   "支出合计": "Total expense",

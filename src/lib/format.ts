@@ -81,6 +81,11 @@ export function currentMonthStr(): string {
   return todayStr().slice(0, 7);
 }
 
+/** 是否属于未来月份（用于「预测」标记） */
+export function isFutureMonth(m: string): boolean {
+  return m > currentMonthStr();
+}
+
 export function addMonths(m: string, delta: number): string {
   const [y, mo] = m.split("-").map(Number);
   const total = y * 12 + (mo - 1) + delta;
