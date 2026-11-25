@@ -1,0 +1,13 @@
+# 让编译过程中的临时文件落在 target/ 目录内，而不是系统 %TEMP%。
+#
+# 原因：本机把 TMP 指向 C:\Users\<用户>\AppData\Local\Temp 时，
+# 编译 bundled SQLite（libsqlite3-sys 的 build script）会让 cl.exe 报
+#   cl : 命令行 error D8050 : 无法执行 "c1.dll" : 未能将命令行放入调试记录中
+# 把 TMP/TEMP 换到可写目录后即可正常编译。
+#
+# 使用 target/ 而不是仓库内新目录：target/ 由 cargo 在每次构建前自动创建，
+# 即使执行过 cargo clean 也不会出现「临时目录不存在」的问题。
+# force = true 表示即使外壳已设置 TMP/TEMP，也以这里为准。
+[env]
+TMP = { value = "src-tauri/target", relative = true, force = true }
+TEMP = { value = "src-tauri/target", relative = true, force = true }

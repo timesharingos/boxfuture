@@ -155,3 +155,13 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+exprdocs
+
+# build / tool caches
+/src-tauri/target
+.npm-cache
+.cargo-home
+.tmp-*
+.localdata
+scripts
