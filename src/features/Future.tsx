@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { t } from "../lib/i18n";
 import { useBootstrap, useForward, useInvalidateAll, useObligations } from "../lib/queries";
 import { api, errorMessage } from "../lib/ipc";
@@ -140,7 +140,7 @@ export default function Future() {
                                 : "amber"
                         }
                       >
-                        {obligationStatusLabel(o.status)}
+                        {t(obligationStatusLabel(o.status))}
                       </Badge>
                     </td>
                     <td>

@@ -1,4 +1,4 @@
-﻿import { t } from "../lib/i18n";
+import { t } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { useBudget, useCapacity, useCash, useHabit, usePnl } from "../lib/queries";
 import { addMonths, cls, monthLabel, pct, shortMonth, yuan } from "../lib/format";
@@ -33,16 +33,18 @@ export default function Reports() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <div className="inline-flex rounded-md border border-slate-700 bg-slate-950/50 p-0.5">
-          {TABS.map((t) => (
+          {TABS.map((tabItem) => (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+              key={tabItem.key}
+              onClick={() => setTab(tabItem.key)}
               className={cls(
                 "rounded px-3 py-1 text-xs transition-colors",
-                tab === t.key ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200",
+                tab === tabItem.key
+                  ? "bg-slate-700 text-slate-100"
+                  : "text-slate-400 hover:text-slate-200",
               )}
             >
-              {t.label}
+              {t(tabItem.label)}
             </button>
           ))}
         </div>
@@ -149,7 +151,7 @@ function PnlView({ from, to }: { from: string; to: string }) {
                   {yuan(m.net)}
                 </td>
                 <td className="text-[11px] text-slate-500">
-                  {m.items.map((i) => `${i.label} ${yuan(i.amount)}`).join(" · ") || "—"}
+                  {m.items.map((i) => `${t(i.label)} ${yuan(i.amount)}`).join(" · ") || "—"}
                 </td>
               </tr>
             ))}

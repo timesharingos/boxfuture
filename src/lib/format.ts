@@ -1,3 +1,20 @@
+import { getLang } from "./i18n";
+
+const EN_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
 export const MONTH_NAMES = [
   "1月",
   "2月",
@@ -42,12 +59,16 @@ export function centsToInput(cents: number): string {
 
 export function monthLabel(m: string): string {
   const [y, mo] = m.split("-");
-  return `${y}年${Number(mo)}月`;
+  const n = Number(mo);
+  if (getLang() === "en") return `${EN_MONTHS[(n - 1) % 12]} ${y}`;
+  return `${y}年${n}月`;
 }
 
 export function shortMonth(m: string): string {
   const [, mo] = m.split("-");
-  return `${Number(mo)}月`;
+  const n = Number(mo);
+  if (getLang() === "en") return EN_MONTHS[(n - 1) % 12];
+  return `${n}月`;
 }
 
 export function todayStr(): string {

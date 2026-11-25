@@ -386,6 +386,122 @@ const EN: Record<string, string> = {
   "应付 {{a}}，已付 {{b}}，未付": "Due {{a}}, paid {{b}}, unpaid",
   "退回一次性预算，可为 0": "Goes to the one-off pool; 0 allowed",
   "原因": "Reason",
+
+  // 补全：分级标签（数据库里的中文）
+  "刚需": "Essential",
+  "小额": "Small",
+  "中等": "Medium",
+  "大额": "Large",
+  "设备": "Equipment",
+  "信用/负债": "Credit / debt",
+  "期货": "Futures",
+  "尾款": "Balance",
+
+  // 补全：表单/报表/设置
+  "采购必要性": "Necessity",
+  "消费理由": "Reason",
+  "时效性": "Urgency",
+  "市场均价": "Market price",
+  "预期使用效果": "Expected benefit",
+  "预期目的": "Purpose",
+  "预算池": "Pool",
+  "定金从哪个账户扣": "Which account the deposit is charged to",
+  "尾款从哪个账户扣": "Which account the balance is charged to",
+  "可未来月，用于预估运费/关税等": "Can be a future month, e.g. estimated shipping/tax",
+  "修改": "Change",
+  "从下个月起生效": "takes effect next month",
+  "：当前选择的 {{m}} 额度不变，新额度自 {{n}} 开始计算。同一个生效月份再次修改会直接覆盖。":
+    ": {{m}} keeps its quota; the new amount starts {{n}}. Editing the same effective month again overwrites it.",
+  "订单": "Orders",
+  "订单数": "Orders",
+  "总额": "Total",
+  "平均延期": "Avg. delay",
+  "跳票率": "Default rate",
+  "展期 + 取消 + 违约 / 订单总数": "rolled over + cancelled + defaulted / total orders",
+  "暂无期货订单": "No futures orders yet",
+  "按月": "By month",
+  "按供应商": "By vendor",
+  "按账户": "By account",
+  "构成": "Breakdown",
+  "收入合计": "Total income",
+  "支出合计": "Total expense",
+  "支出": "Expense",
+  "净额": "Net",
+  "现金流入": "Cash in",
+  "现金流出": "Cash out",
+  "净现金流": "Net cash flow",
+  "流入": "In",
+  "流出": "Out",
+  "额度": "Quota",
+  "已用": "Used",
+  "可用": "Available",
+  "使用率": "Usage",
+  "没有数据": "No data",
+  "明细": "Details",
+  "起": "From",
+  "止": "To",
+  "权责发生制：期货下单日确认全额，计提核销日确认":
+    "Accrual basis: futures are recognized in full on order date; accruals on settlement date",
+  "预算执行报告对比实际权责支出与「规律额度 + 一次性可用额」；超支行会标红。":
+    "Compares actual accrual spending against “recurring quota + available one-off”; overspent rows are red.",
+  "本月剩余规律额度": "Recurring left this month",
+  "未来 12 月刚性义务分布": "Fixed obligations over the next 12 months",
+  "可超前消费": "Spending headroom",
+  "计算口径": "Calculation basis",
+  "可超前消费 = 可支配总资产 − 刚性义务 − 安全垫 =":
+    "Headroom = available assets − obligations − cushion =",
+  "安全垫可在「设置」中调整。": "The cushion can be changed in Settings.",
+  "预算参数": "Budget settings",
+  "安全垫（元）": "Safety cushion (CNY)",
+  "计算「超前消费能力」时保留的安全余量": "Reserve kept when computing spending headroom",
+  "未来义务预测月数": "Forecast months",
+  "仪表盘与平摊表展示的月数": "How many months the dashboard and schedule show",
+  "单个附件大小上限（MB）": "Attachment size limit (MB)",
+  "数据": "Data",
+  "数据库位置": "Database location",
+  "导出备份": "Export backup",
+  "备份已导出": "Backup exported",
+  "备份为 SQLite 快照；附件位于同目录的 attachments 文件夹，需要一并复制。所有交易均为追加式存储，不会物理删除。":
+    "The backup is a SQLite snapshot; attachments live in the sibling attachments folder and should be copied too. All entries are append-only and never physically deleted.",
+  "消费分级（只读）": "Spending levels (read-only)",
+  "必填项": "Required fields",
+  "区间（元）": "Range (CNY)",
+  "月度次数": "Monthly limit",
+  "限额": "Limit",
+  "账本原则": "Ledger principles",
+  "币种": "Currencies",
+  "首版以人民币为本位币；外币金额仅作为订单元数据记录，汇率手工填写。":
+    "CNY is the base currency; foreign amounts are order metadata with a manually entered FX rate.",
+  "已重开该月，可补录交易": "Month reopened; you can backfill entries",
+  "计提已核销，生成一笔真实现货交易": "Accrual settled; a real spot entry was created",
+  "取消期货订单": "Cancel futures order",
+  "展期尾款": "Roll over balance",
+  "-": "-",
+  "合计": "Total",
+  "已付 {{a}} / {{b}}": "Paid {{a}} / {{b}}",
+  "月末自动结账：每个账户的「规律可用」会整体转入同账户的一次性预算（正数增加、负数扣减），规律预算按月重置到额度。已结账月份默认锁定，如需补录请使用「重开上月」。":
+    "At month end every account's remaining recurring budget moves into its one-off pool (positive adds, negative deducts), and recurring resets to the quota. Closed months are locked; use “Reopen” to backfill.",
+  "交易只追加，修改通过冲销 / 核销 / 展期等反向事件完成。":
+    "Entries are append-only; corrections happen through reversal / settlement / roll-over events.",
+  "规律预算按月重置，结余自动转入一次性预算。":
+    "Recurring budget resets monthly; the surplus moves to the one-off pool.",
+  "一次性预算不可再生，不能转回规律预算。":
+    "One-off budget never renews and cannot move back to recurring.",
+  "已结账月份锁定，补录需先「重开上月」。":
+    "Closed months are locked; reopen the month before backfilling.",
+  "预算释放（退款 / 冲销）一律回到一次性预算。":
+    "Budget releases (refunds / reversals) always land in the one-off pool.",
+  "额外成本先扣一次性，不足再扣规律预算（规律可为负）。":
+    "Extra costs hit the one-off pool first, then recurring (which may go negative).",
+  "消费分级按金额自动判定，必填项未填无法保存。":
+    "Spending level is derived from the amount; missing required fields block saving.",
+  "{{code}} {{name}}（{{n}} 位小数）": "{{code}} {{name}} ({{n}} decimals)",
+  "人民币": "Chinese Yuan",
+  "日元": "Japanese Yen",
+  "美元": "US Dollar",
+  "欧元": "Euro",
+  "英镑": "Pound Sterling",
+  "其他": "Other",
 };
 
 function detectLang(): Lang {
@@ -461,4 +577,9 @@ export function useT() {
 /** 组件外也能用的翻译函数（当前语言由 I18nProvider 同步） */
 export function t(zh: string, vars?: Record<string, string | number>): string {
   return translate(currentLang, zh, vars);
+}
+
+/** 当前语言，供日期/月份等格式化使用 */
+export function getLang(): Lang {
+  return currentLang;
 }

@@ -1,4 +1,4 @@
-﻿import { t } from "../lib/i18n";
+import { t } from "../lib/i18n";
 import { useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useBootstrap, useInvalidateAll } from "../lib/queries";
@@ -125,7 +125,7 @@ export default function SettingsPage() {
                 {boot.data.tagRules.map((r) => (
                   <tr key={r.tag}>
                     <td className="text-slate-200">
-                      {r.label}
+                      {t(r.label)}
                       {r.monthlyLimit != null && <Badge tone="amber" className="ml-1">{t("限额")}</Badge>}
                     </td>
                     <td className="num text-right text-slate-400">
@@ -135,7 +135,7 @@ export default function SettingsPage() {
                       {r.monthlyLimit ?? "—"}
                     </td>
                     <td className="text-[11px] text-slate-500">
-                      {r.requiredFields.map(fieldLabel).join("、") || "—"}
+                      {r.requiredFields.map((f) => t(fieldLabel(f))).join("、") || "—"}
                     </td>
                   </tr>
                 ))}
@@ -147,13 +147,13 @@ export default function SettingsPage() {
         <div>
           <SectionTitle>{t("账本原则")}</SectionTitle>
           <Card className="card-pad space-y-1.5 text-[11px] leading-relaxed text-slate-400">
-            <div>· 交易只追加，修改通过冲销 / 核销 / 展期等反向事件完成。</div>
-            <div>· 规律预算按月重置，结余自动转入一次性预算。</div>
-            <div>· 一次性预算不可再生，不能转回规律预算。</div>
-            <div>· 已结账月份锁定，补录需先「重开上月」。</div>
-            <div>· 预算释放（退款 / 冲销）一律回到一次性预算。</div>
-            <div>· 额外成本先扣一次性，不足再扣规律预算（规律可为负）。</div>
-            <div>· 消费分级按金额自动判定，必填项未填无法保存。</div>
+            <div>· {t("交易只追加，修改通过冲销 / 核销 / 展期等反向事件完成。")}</div>
+            <div>· {t("规律预算按月重置，结余自动转入一次性预算。")}</div>
+            <div>· {t("一次性预算不可再生，不能转回规律预算。")}</div>
+            <div>· {t("已结账月份锁定，补录需先「重开上月」。")}</div>
+            <div>· {t("预算释放（退款 / 冲销）一律回到一次性预算。")}</div>
+            <div>· {t("额外成本先扣一次性，不足再扣规律预算（规律可为负）。")}</div>
+            <div>· {t("消费分级按金额自动判定，必填项未填无法保存。")}</div>
           </Card>
         </div>
 
@@ -163,7 +163,11 @@ export default function SettingsPage() {
             <div className="flex flex-wrap gap-2">
               {boot.data.currencies.map((c) => (
                 <Badge key={c.code} tone={c.code === "CNY" ? "sky" : "slate"}>
-                  {c.code} {c.name}（{c.minorUnit} 位小数）
+                  {t("{{code}} {{name}}（{{n}} 位小数）", {
+                    code: c.code,
+                    name: t(c.name),
+                    n: c.minorUnit,
+                  })}
                 </Badge>
               ))}
             </div>
