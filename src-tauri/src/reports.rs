@@ -62,6 +62,37 @@ pub struct AccountCash {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct RealizeMonth {
+    pub month: String,
+    pub quota: i64,
+    pub realized: i64,
+    pub ratio: f64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RealizeAccount {
+    pub account_id: String,
+    pub account_name: String,
+    pub quota: i64,
+    pub realized: i64,
+    pub ratio: f64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RealizeReport {
+    pub from: String,
+    pub to: String,
+    pub months: Vec<RealizeMonth>,
+    pub total_quota: i64,
+    pub total_realized: i64,
+    pub ratio: f64,
+    pub by_account: Vec<RealizeAccount>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BudgetRow {
     pub account_id: String,
     pub account_name: String,
@@ -153,6 +184,9 @@ fn kind_label(kind: &str) -> &'static str {
         "opening" => "期初",
         "period_close" => "月结",
         "freeze" => "冻结",
+        "budget_receivable" => "规律预算",
+        "budget_realize" => "预算兑现",
+        "budget_unrealize" => "兑现撤回",
         _ => "其他",
     }
 }
@@ -234,6 +268,26 @@ impl<'a> Book<'a> {
             }
         }
 
+        // 规律预算按「本月应收」计入收入。
+        // 当前月及其之前用当月额度；未来月按 100% 兑现（预览口径）展示。
+        for row in months.iter_mut() {
+            let quota_total: i64 = self
+                .accounts(&row.month)?
+                .into_iter()
+                .filter(|a| !a.archived)
+                .map(|a| a.quota)
+                .sum();
+            if quota_total != 0 {
+                row.income += quota_total;
+                row.net = row.income - row.expense;
+                row.items.push(PnlItem {
+                    kind: "budget_receivable".into(),
+                    label: kind_label("budget_receivable").to_string(),
+                    amount: quota_total,
+                });
+            }
+        }
+
         let total_income = months.iter().map(|m| m.income).sum();
         let total_expense = months.iter().map(|m| m.expense).sum();
         Ok(PnlReport {
@@ -299,6 +353,101 @@ impl<'a> Book<'a> {
             total_inflow: months.iter().map(|m| m.inflow).sum(),
             total_outflow: months.iter().map(|m| m.outflow).sum(),
             months,
+            by_account,
+        })
+    }
+
+    /// 预算兑现比例：本月规律额度 vs 实际兑现
+    pub fn report_realization(&self, from: &str, to: &str) -> Res<RealizeReport> {
+        let mut months: Vec<RealizeMonth> = month_range(from, to)
+            .into_iter()
+            .map(|m| RealizeMonth {
+                month: m,
+                quota: 0,
+                realized: 0,
+                ratio: 0.0,
+            })
+            .collect();
+
+        let mut realized_map: std::collections::HashMap<(String, String), i64> =
+            std::collections::HashMap::new();
+        let mut acc_totals: std::collections::HashMap<String, i64> =
+            std::collections::HashMap::new();
+        {
+            let mut stmt = self.conn.prepare(
+                "SELECT account_id,budget_month,
+                        SUM(CASE WHEN kind='budget_realize' THEN amount ELSE -amount END)
+                 FROM ledger_event
+                 WHERE kind IN ('budget_realize','budget_unrealize')
+                   AND budget_month>=? AND budget_month<=? AND status<>'void'
+                 GROUP BY account_id,budget_month",
+            )?;
+            let rows = stmt
+                .query_map(params![from, to], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, i64>(2)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            for (acc, m, amt) in rows {
+                *realized_map.entry((acc.clone(), m)).or_insert(0) += amt;
+                *acc_totals.entry(acc).or_insert(0) += amt;
+            }
+        }
+
+        for row in months.iter_mut() {
+            let accs = self.accounts(&row.month)?;
+            row.quota = accs.iter().filter(|a| !a.archived).map(|a| a.quota).sum();
+            row.realized = realized_map
+                .iter()
+                .filter(|((_, m), _)| m == &row.month)
+                .map(|(_, v)| *v)
+                .sum();
+            row.ratio = if row.quota > 0 {
+                row.realized as f64 / row.quota as f64
+            } else {
+                0.0
+            };
+        }
+
+        let mut by_account = Vec::new();
+        for a in self.accounts(to)? {
+            if a.archived {
+                continue;
+            }
+            let mut quota = 0i64;
+            for m in month_range(from, to) {
+                quota += self.quota_at(&a.id, &m)?;
+            }
+            let realized = *acc_totals.get(&a.id).unwrap_or(&0);
+            by_account.push(RealizeAccount {
+                account_id: a.id.clone(),
+                account_name: a.name.clone(),
+                quota,
+                realized,
+                ratio: if quota > 0 {
+                    realized as f64 / quota as f64
+                } else {
+                    0.0
+                },
+            });
+        }
+
+        let total_quota: i64 = months.iter().map(|m| m.quota).sum();
+        let total_realized: i64 = months.iter().map(|m| m.realized).sum();
+        Ok(RealizeReport {
+            from: from.to_string(),
+            to: to.to_string(),
+            months,
+            total_quota,
+            total_realized,
+            ratio: if total_quota > 0 {
+                total_realized as f64 / total_quota as f64
+            } else {
+                0.0
+            },
             by_account,
         })
     }

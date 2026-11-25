@@ -213,6 +213,31 @@ pub fn create_opening(state: State<'_, AppState>, input: OpeningInput) -> Res<Cr
 }
 
 #[tauri::command]
+pub fn create_realize(state: State<'_, AppState>, input: RealizeInput) -> Res<CreatedEvent> {
+    let conn = state.db.lock().unwrap();
+    let book = Book::new(&conn);
+    book.tx(|| book.create_realize(input))
+}
+
+#[tauri::command]
+pub fn undo_realize(state: State<'_, AppState>, event_id: String) -> Res<CreatedEvent> {
+    let conn = state.db.lock().unwrap();
+    let book = Book::new(&conn);
+    book.tx(|| book.undo_realize(&event_id))
+}
+
+#[tauri::command]
+pub fn report_realization(
+    state: State<'_, AppState>,
+    from: String,
+    to: String,
+) -> Res<RealizeReport> {
+    let conn = state.db.lock().unwrap();
+    let book = Book::new(&conn);
+    book.report_realization(&from, &to)
+}
+
+#[tauri::command]
 pub fn reverse(state: State<'_, AppState>, input: ReversalInput) -> Res<CreatedEvent> {
     let conn = state.db.lock().unwrap();
     let book = Book::new(&conn);

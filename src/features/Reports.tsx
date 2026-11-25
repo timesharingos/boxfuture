@@ -1,11 +1,11 @@
 import { t } from "../lib/i18n";
 import { useEffect, useState } from "react";
-import { useBudget, useCapacity, useCash, useHabit, usePnl } from "../lib/queries";
+import { useBudget, useCapacity, useCash, useHabit, usePnl, useRealization } from "../lib/queries";
 import { addMonths, cls, monthLabel, pct, shortMonth, yuan } from "../lib/format";
 import { Card, Empty, Field, Input, Stat } from "../components/ui";
 import { useMonth } from "../App";
 
-type Tab = "pnl" | "cash" | "budget" | "habit" | "capacity";
+type Tab = "pnl" | "cash" | "budget" | "habit" | "capacity" | "realize";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "pnl", label: "利润表" },
@@ -13,6 +13,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "budget", label: "预算执行" },
   { key: "habit", label: "预订习惯" },
   { key: "capacity", label: "超前消费能力" },
+  { key: "realize", label: "兑现比例" },
 ];
 
 export default function Reports() {
@@ -85,6 +86,7 @@ export default function Reports() {
       {tab === "budget" && <BudgetView month={budgetMonth} />}
       {tab === "habit" && <HabitView toMonth={headerMonth} />}
       {tab === "capacity" && <CapacityView month={headerMonth} />}
+      {tab === "realize" && <RealizeView from={from} to={to} />}
     </div>
   );
 }
@@ -455,3 +457,119 @@ function CapacityView({ month }: { month: string }) {
   );
 }
 
+
+function RealizeView({ from, to }: { from: string; to: string }) {
+  const q = useRealization(from, to);
+  if (!q.data) return <Empty title={t("加载中…")} />;
+  const d = q.data;
+  const owed = d.totalQuota - d.totalRealized;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-4 gap-3">
+        <div className="card card-pad">
+          <div className="text-[11px] text-slate-500">{t("兑现比例")}</div>
+          <div className="num mt-1 text-[20px] font-semibold text-sky-300">
+            {Math.round(d.ratio * 100)}%
+          </div>
+        </div>
+        <div className="card card-pad">
+          <div className="text-[11px] text-slate-500">{t("规律额度")}</div>
+          <div className="num mt-1 text-[20px] text-slate-200">{yuan(d.totalQuota)}</div>
+        </div>
+        <div className="card card-pad">
+          <div className="text-[11px] text-slate-500">{t("已兑现")}</div>
+          <div className="num mt-1 text-[20px] text-emerald-400">{yuan(d.totalRealized)}</div>
+        </div>
+        <div className="card card-pad">
+          <div className="text-[11px] text-slate-500">{t("欠兑现")}</div>
+          <div className={cls("num mt-1 text-[20px]", owed > 0 ? "text-amber-300" : "text-slate-200")}>
+            {yuan(owed)}
+          </div>
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>{t("月份")}</th>
+              <th className="text-right">{t("规律额度")}</th>
+              <th className="text-right">{t("已兑现")}</th>
+              <th className="text-right">{t("欠兑现")}</th>
+              <th className="w-[220px]">{t("兑现比例")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.months.map((m) => {
+              const left = m.quota - m.realized;
+              const r = Math.min(1, Math.max(0, m.ratio));
+              return (
+                <tr key={m.month}>
+                  <td className="num text-slate-300">{monthLabel(m.month)}</td>
+                  <td className="num text-right">{yuan(m.quota)}</td>
+                  <td className="num text-right text-emerald-400">{yuan(m.realized)}</td>
+                  <td className={cls("num text-right", left > 0 ? "text-amber-300" : "text-slate-500")}>
+                    {yuan(left)}
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
+                        <div
+                          className="h-full bg-sky-500"
+                          style={{ width: `${r * 100}%` }}
+                        />
+                      </div>
+                      <span className="num w-10 text-right text-[11px] text-slate-500">
+                        {Math.round(m.ratio * 100)}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <div className="section-title mb-1">{t("按账户")}</div>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>{t("账户")}</th>
+                <th className="text-right">{t("规律额度")}</th>
+                <th className="text-right">{t("已兑现")}</th>
+                <th className="text-right">{t("兑现比例")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.byAccount.map((a) => (
+                <tr key={a.accountId}>
+                  <td className="text-slate-200">{a.accountName}</td>
+                  <td className="num text-right">{yuan(a.quota)}</td>
+                  <td className="num text-right text-emerald-400">{yuan(a.realized)}</td>
+                  <td className="num text-right text-slate-400">
+                    {Math.round(a.ratio * 100)}%
+                  </td>
+                </tr>
+              ))}
+              {d.byAccount.length === 0 && (
+                <tr>
+                  <td colSpan={4}>
+                    <Empty title={t("没有数据")} />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="text-[11px] leading-relaxed text-slate-600">
+        {t("规律预算在月初记为应收收入；兑现是它的实际到账，累计不超过当月额度。欠兑现 = 额度 − 已兑现，按月清零。")}
+      </div>
+    </div>
+  );
+}

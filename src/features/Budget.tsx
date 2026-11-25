@@ -1,6 +1,6 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { t } from "../lib/i18n";
-import { useBootstrap, useBudget, useInvalidateAll } from "../lib/queries";
+import { useBootstrap, useBudget, useInvalidateAll, useRealization } from "../lib/queries";
 import { api, errorMessage } from "../lib/ipc";
 import { addMonths, monthLabel, yuan } from "../lib/format";
 import {
@@ -20,6 +20,7 @@ export default function Budget() {
   const { month, setMonth } = useMonth();
   const boot = useBootstrap();
   const budget = useBudget(month);
+  const realization = useRealization(month, month);
   const invalidate = useInvalidateAll();
   const [editing, setEditing] = useState<{ id: string; name: string; quota: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -95,6 +96,24 @@ export default function Budget() {
           tone={totals.left < 0 ? "danger" : "ok"}
         />
         <Summary label={t("一次性余额合计")} value={yuan(totals.oneoff)} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Summary
+          label={t("预算兑现比例")}
+          value={`${Math.round((realization.data?.ratio ?? 0) * 100)}%`}
+          tone={(realization.data?.ratio ?? 0) >= 1 ? "ok" : undefined}
+        />
+        <Summary label={t("已兑现")} value={yuan(realization.data?.totalRealized ?? 0)} />
+        <Summary
+          label={t("欠兑现")}
+          value={yuan((realization.data?.totalQuota ?? 0) - (realization.data?.totalRealized ?? 0))}
+          tone={
+            (realization.data?.totalQuota ?? 0) > (realization.data?.totalRealized ?? 0)
+              ? "danger"
+              : "ok"
+          }
+        />
       </div>
 
       <div className="table-wrap">

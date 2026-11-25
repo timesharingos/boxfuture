@@ -1,4 +1,4 @@
-﻿use boxfuture_lib::db;
+use boxfuture_lib::db;
 use boxfuture_lib::domain::*;
 use boxfuture_lib::engine::write::*;
 use boxfuture_lib::engine::Book;
@@ -177,6 +177,17 @@ fn projected_oneoff_simulates_month_close() {
     // 当前月花掉 1000 元，规律结余 4000
     book.tx(|| book.create_spot(spot_input(100_000, Pool::Recurring)))
         .unwrap();
+    // 虚拟月结按「已兑现」计算当前月，这里先全额兑现 5000
+    book.tx(|| {
+        book.create_realize(RealizeInput {
+            account_id: "acc_daily".into(),
+            month: m.clone(),
+            amount: 500_000,
+            date: today(),
+            note: None,
+        })
+    })
+    .unwrap();
 
     // 实际（未模拟结转）的一次性余额仍为 0
     assert_eq!(book.oneoff_balance("acc_daily", &target).unwrap(), 0);

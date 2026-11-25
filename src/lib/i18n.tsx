@@ -61,6 +61,8 @@ const EN: Record<string, string> = {
   "一次性余额": "One-off balance",
   "结算至 {{m}} · 含未结账月份的预计结转":
     "Settled to {{m}} · includes projected carry-over of open months",
+  "结算至 {{m}} · 未结账月份按模拟月结（当前月按已兑现比例）":
+    "Settled to {{m}} · open months use simulated close (current month at its realized ratio)",
   "未来 12 月刚性义务": "Fixed obligations (next 12 months)",
   "含尾款与计提 {{n}} 笔": "{{n}} unpaid balances & accruals",
   "超前消费能力": "Spending headroom",
@@ -502,6 +504,31 @@ const EN: Record<string, string> = {
   "欧元": "Euro",
   "英镑": "Pound Sterling",
   "其他": "Other",
+
+  // 预算兑现
+  "兑现": "Realize",
+  "规律预算到账，计入现金流": "Recurring budget arriving, counted as cash flow",
+  "规律预算在月初记为「应收」收入；这里记录它真正到账的部分。兑现只进现金流，不改变可花额度，累计不能超过当月额度，少兑现的部分算「欠兑现」。":
+    "The recurring quota is booked as receivable income at month start; this records the part that actually arrived. Realization only affects cash flow — spendable budget is unchanged — and the total may not exceed the month's quota. Anything unrealized counts as “owed realization”.",
+  "要兑现哪个月的规律预算": "Which month's recurring budget",
+  "本月剩余可兑现 {{x}}": "Still realizable this month: {{x}}",
+  "到账日期": "Arrival date",
+  "额度 {{q}} · 已兑现 {{r}} · 未兑现 {{u}}": "Quota {{q}} · realized {{r}} · outstanding {{u}}",
+  "超出剩余可兑现额度": "Exceeds the remaining realizable amount",
+  "填入剩余额度": "Fill remaining",
+  "保存兑现": "Save realization",
+  "兑现已记录": "Realization recorded",
+  "兑现金额": "Amount realized",
+  "撤回兑现": "Undo realization",
+  "已撤回该笔兑现": "Realization undone",
+  "预算兑现": "Budget realization",
+  "兑现撤回": "Realization undone",
+  "预算兑现比例": "Realization rate",
+  "已兑现": "Realized",
+  "欠兑现": "Owed",
+  "兑现比例": "Realization rate",
+  "规律预算在月初记为应收收入；兑现是它的实际到账，累计不超过当月额度。欠兑现 = 额度 − 已兑现，按月清零。":
+    "The recurring quota is booked as receivable income at the start of the month; realization is what actually arrived, capped at that month's quota. Owed = quota − realized, reset every month.",
 };
 
 function detectLang(): Lang {

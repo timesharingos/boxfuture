@@ -294,3 +294,28 @@ export interface OrderLineInput {
   currency?: string;
   note?: string;
 }
+
+export interface RealizeMonth {
+  month: string;
+  quota: number;
+  realized: number;
+  ratio: number;
+}
+
+export interface RealizeAccount {
+  accountId: string;
+  accountName: string;
+  quota: number;
+  realized: number;
+  ratio: number;
+}
+
+export interface RealizeReport {
+  from: string;
+  to: string;
+  months: RealizeMonth[];
+  totalQuota: number;
+  totalRealized: number;
+  ratio: number;
+  byAccount: RealizeAccount[];
+}

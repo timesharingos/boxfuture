@@ -967,6 +967,132 @@ impl<'a> Book<'a> {
 }
 
 // ---------------------------------------------------------------------------
+// 预算兑现（规律预算的「应收 → 到账」）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RealizeInput {
+    pub account_id: String,
+    pub month: String,
+    pub amount: i64,
+    pub date: String,
+    pub note: Option<String>,
+}
+
+impl<'a> Book<'a> {
+    /// 某账户某月已兑现总额（兑现 − 撤回）
+    pub fn realized_amount(&self, account_id: &str, month: &str) -> Res<i64> {
+        let v: i64 = self.conn.query_row(
+            "SELECT COALESCE(SUM(CASE WHEN kind='budget_realize' THEN amount ELSE -amount END),0)
+             FROM ledger_event WHERE kind IN ('budget_realize','budget_unrealize')
+               AND account_id=? AND budget_month=? AND status<>'void'",
+            params![account_id, month],
+            |r| r.get(0),
+        )?;
+        Ok(v)
+    }
+
+    pub fn create_realize(&self, input: RealizeInput) -> Res<CreatedEvent> {
+        let acc = self.account(&input.account_id)?;
+        require_positive(input.amount, "兑现金额")?;
+        let month = input.month.clone();
+        if month.len() != 7 || month_of(&format!("{month}-01")) != month {
+            return Err(AppError::validation("预算月份格式应为 YYYY-MM"));
+        }
+        let date = normalize_date(&input.date);
+        self.ensure_period(&month)?;
+        self.reject_closed(&month)?;
+
+        let quota = self.quota_at(&acc.id, &month)?;
+        if quota <= 0 {
+            return Err(AppError::validation("该月没有规律预算额度，无法兑现"));
+        }
+        let realized = self.realized_amount(&acc.id, &month)?;
+        let left = (quota - realized).max(0);
+        if input.amount > left {
+            return Err(AppError::validation(format!(
+                "兑现不能超过本月额度：额度 {}，已兑现 {}，剩余 {}",
+                yuan(quota),
+                yuan(realized),
+                yuan(left)
+            )));
+        }
+
+        let event_id = self.insert_event(&EventDraft {
+            kind: "budget_realize".into(),
+            direction: "income".into(),
+            accrual_date: date.clone(),
+            budget_month: month.clone(),
+            cash_date: Some(date.clone()),
+            amount: input.amount,
+            cash_amount: input.amount,
+            account_id: Some(acc.id.clone()),
+            pool: Some(Pool::Recurring.as_str().into()),
+            note: input.note.clone(),
+            ..Default::default()
+        })?;
+        self.add_cash(&event_id, &acc.id, &date, input.amount, "realize")?;
+
+        Ok(CreatedEvent {
+            event_id,
+            tag: None,
+            tag_upgraded: false,
+            warnings: Vec::new(),
+        })
+    }
+
+    /// 撤回一笔兑现（追加反向事件，不改原记录）
+    pub fn undo_realize(&self, event_id: &str) -> Res<CreatedEvent> {
+        let (kind, amount, account_id, month): (String, i64, Option<String>, String) = self
+            .conn
+            .query_row(
+                "SELECT kind,amount,account_id,budget_month FROM ledger_event WHERE id=?",
+                [event_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .optional()?
+            .ok_or_else(|| AppError::not_found("原兑现记录不存在"))?;
+        if kind != "budget_realize" {
+            return Err(AppError::conflict("只有「预算兑现」可以撤回"));
+        }
+        let undone: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM ledger_event WHERE kind='budget_unrealize' AND ref_event_id=? AND status<>'void'",
+            [event_id],
+            |r| r.get(0),
+        )?;
+        if undone > 0 {
+            return Err(AppError::conflict("该兑现已经撤回过了"));
+        }
+        self.reject_closed(&month)?;
+        let acc = account_id.ok_or_else(|| AppError::internal("原兑现缺少账户"))?;
+        let date = today();
+
+        let new_id = self.insert_event(&EventDraft {
+            kind: "budget_unrealize".into(),
+            direction: "expense".into(),
+            ref_event_id: Some(event_id.to_string()),
+            accrual_date: date.clone(),
+            budget_month: month.clone(),
+            cash_date: Some(date.clone()),
+            amount,
+            cash_amount: amount,
+            account_id: Some(acc.clone()),
+            pool: Some(Pool::Recurring.as_str().into()),
+            ..Default::default()
+        })?;
+        self.add_cash(&new_id, &acc, &date, -amount, "unrealize")?;
+
+        Ok(CreatedEvent {
+            event_id: new_id,
+            tag: None,
+            tag_upgraded: false,
+            warnings: Vec::new(),
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
 // 冲销
 // ---------------------------------------------------------------------------
 

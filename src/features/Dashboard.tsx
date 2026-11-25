@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAccounts, useCapacity, useForward, useObligations } from "../lib/queries";
 import { accountKindLabel, monthLabel, obligationStatusLabel, poolLabel, shortMonth, yuan } from "../lib/format";
 import { Badge, Card, Empty, SectionTitle, Stat } from "../components/ui";
@@ -36,7 +36,9 @@ export default function Dashboard() {
         <Stat
           label={t("一次性余额")}
           value={yuan(oneoffTotal)}
-          sub={t("结算至 {{m}} · 含未结账月份的预计结转", { m: monthLabel(month) })}
+          sub={t("结算至 {{m}} · 未结账月份按模拟月结（当前月按已兑现比例）", {
+            m: monthLabel(month),
+          })}
         />
         <Stat
           label={t("未来 12 月刚性义务")}

@@ -96,6 +96,12 @@ export function useCash(from: string, to: string) {
     queryFn: () => api.reportCash(from, to),
   });
 }
+export function useRealization(from: string, to: string) {
+  return useQuery({
+    queryKey: ["realization", from, to],
+    queryFn: () => api.reportRealization(from, to),
+  });
+}
 
 export function useHabit(months = 12, toMonth?: string) {
   return useQuery({

@@ -108,6 +108,9 @@ const KIND_LABEL: Record<string, string> = {
   opening: "期初",
   period_close: "月结",
   freeze: "冻结",
+  budget_receivable: "规律预算",
+  budget_realize: "预算兑现",
+  budget_unrealize: "兑现撤回",
 };
 
 export function kindLabel(kind: string): string {

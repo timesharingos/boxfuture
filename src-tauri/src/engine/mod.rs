@@ -1,4 +1,4 @@
-﻿pub mod close;
+pub mod close;
 pub mod read;
 pub mod write;
 
@@ -111,6 +111,20 @@ impl<'a> Book<'a> {
         Ok(v)
     }
 
+    /// 虚拟月结：某账户某月「预计结转进一次性」的金额。
+    /// 当前月按实际兑现比例（只结转真正到账的那部分），未来月按 100% 兑现。
+    pub fn projected_carryover(&self, account_id: &str, month: &str) -> Res<i64> {
+        let rb = self.recurring_balance(account_id, month)?;
+        if month == current_month() {
+            let quota = self.quota_at(account_id, month)?;
+            let realized = self.realized_amount(account_id, month)?;
+            let unrealized = (quota - realized).max(0);
+            Ok(rb - unrealized)
+        } else {
+            Ok(rb)
+        }
+    }
+
     /// 「结算到某月」时的一次性余额：
     /// 已结账月份用真实结转分录，未结账月份按规律结余**模拟结转**。
     pub fn projected_oneoff_balance(&self, account_id: &str, month: &str) -> Res<i64> {
@@ -118,7 +132,7 @@ impl<'a> Book<'a> {
         if let Some(mut cur) = self.activity_start_month(account_id)? {
             while cur.as_str() < month {
                 if !self.is_closed(&cur)? {
-                    total += self.recurring_balance(account_id, &cur)?;
+                    total += self.projected_carryover(account_id, &cur)?;
                 }
                 cur = month_add(&cur, 1);
             }

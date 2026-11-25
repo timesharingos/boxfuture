@@ -197,3 +197,164 @@ fn cancelled_order_is_counted_in_default_rate() {
     let budget = book.report_budget(&current_month()).unwrap();
     assert_eq!(budget.len(), 3);
 }
+
+#[test]
+fn pnl_counts_recurring_quota_as_income() {
+    let conn = setup();
+    let book = Book::new(&conn);
+    let m = current_month();
+
+    let pnl = book.report_pnl(&m, &m).unwrap();
+    // 默认账户 acc_daily 规律额度 5000 元，应作为「规律预算」收入
+    assert_eq!(pnl.total_income, 500_000, "income={}", pnl.total_income);
+    let item = pnl.months[0]
+        .items
+        .iter()
+        .find(|i| i.kind == "budget_receivable")
+        .expect("缺少规律预算收入项");
+    assert_eq!(item.amount, 500_000);
+    // 没有支出时净额就是额度本身，不再是负数
+    assert_eq!(pnl.months[0].net, 500_000);
+}
+
+#[test]
+fn realize_counts_into_cash_flow_only() {
+    let conn = setup();
+    let book = Book::new(&conn);
+    let m = current_month();
+
+    book.tx(|| {
+        book.create_realize(RealizeInput {
+            account_id: "acc_daily".into(),
+            month: m.clone(),
+            amount: 200_000,
+            date: today(),
+            note: None,
+        })
+    })
+    .unwrap();
+
+    // 兑现不改变可花额度
+    assert_eq!(book.recurring_balance("acc_daily", &m).unwrap(), 500_000);
+    assert_eq!(book.oneoff_balance("acc_daily", &m).unwrap(), 0);
+    assert_eq!(book.realized_amount("acc_daily", &m).unwrap(), 200_000);
+
+    // 现金流入
+    let cash = book.report_cash(&m, &m).unwrap();
+    assert_eq!(cash.total_inflow, 200_000);
+
+    // 兑现比例
+    let rep = book.report_realization(&m, &m).unwrap();
+    assert_eq!(rep.total_quota, 500_000);
+    assert_eq!(rep.total_realized, 200_000);
+    assert!((rep.ratio - 0.4).abs() < 1e-9);
+}
+
+#[test]
+fn realize_cannot_exceed_quota_and_can_be_undone() {
+    let conn = setup();
+    let book = Book::new(&conn);
+    let m = current_month();
+
+    let first = book
+        .tx(|| {
+            book.create_realize(RealizeInput {
+                account_id: "acc_daily".into(),
+                month: m.clone(),
+                amount: 300_000,
+                date: today(),
+                note: None,
+            })
+        })
+        .unwrap();
+
+    let err = book
+        .tx(|| {
+            book.create_realize(RealizeInput {
+                account_id: "acc_daily".into(),
+                month: m.clone(),
+                amount: 300_000,
+                date: today(),
+                note: None,
+            })
+        })
+        .unwrap_err();
+    assert_eq!(err.code, "validation");
+
+    // 补齐到额度上限可以
+    book.tx(|| {
+        book.create_realize(RealizeInput {
+            account_id: "acc_daily".into(),
+            month: m.clone(),
+            amount: 200_000,
+            date: today(),
+            note: None,
+        })
+    })
+    .unwrap();
+    assert_eq!(book.realized_amount("acc_daily", &m).unwrap(), 500_000);
+
+    // 撤回第一笔
+    book.tx(|| book.undo_realize(&first.event_id)).unwrap();
+    assert_eq!(book.realized_amount("acc_daily", &m).unwrap(), 200_000);
+    let cash = book.report_cash(&m, &m).unwrap();
+    // 撤回是一笔现金流出（原始的两笔兑现仍然是流入）
+    assert_eq!(cash.total_inflow, 500_000);
+    assert_eq!(cash.total_outflow, 300_000);
+    assert_eq!(cash.months[0].net, 200_000);
+    // 同一笔不能重复撤回
+    assert!(book.tx(|| book.undo_realize(&first.event_id)).is_err());
+}
+
+
+#[test]
+fn virtual_month_close_uses_realized_ratio_for_current_month() {
+    let conn = setup();
+    let book = Book::new(&conn);
+    let m = current_month();
+    let next = month_add(&m, 1);
+
+    // 兑现 3000 元（额度 5000）
+    book.tx(|| {
+        book.create_realize(RealizeInput {
+            account_id: "acc_daily".into(),
+            month: m.clone(),
+            amount: 300_000,
+            date: today(),
+            note: None,
+        })
+    })
+    .unwrap();
+
+    // 当前月：只把已兑现的部分算作可结转（3000）
+    assert_eq!(book.projected_carryover("acc_daily", &m).unwrap(), 300_000);
+    // 未来月：按 100% 兑现，规律结余全额结转（5000）
+    assert_eq!(book.projected_carryover("acc_daily", &next).unwrap(), 500_000);
+    // 结算到下个月的一次性余额 = 当前月模拟结转 3000
+    assert_eq!(book.projected_oneoff_balance("acc_daily", &next).unwrap(), 300_000);
+}
+
+#[test]
+fn virtual_close_also_nets_out_spending() {
+    let conn = setup();
+    let book = Book::new(&conn);
+    let m = current_month();
+
+    // 花掉 1000，兑现 3000
+    book.tx(|| book.create_spot(spot_input(100_000, Pool::Recurring, "花掉")))
+        .unwrap();
+    book.tx(|| {
+        book.create_realize(RealizeInput {
+            account_id: "acc_daily".into(),
+            month: m.clone(),
+            amount: 300_000,
+            date: today(),
+            note: None,
+        })
+    })
+    .unwrap();
+
+    // 规律结余 = 5000 - 1000 = 4000，其中欠兑现 2000 不计入结转
+    assert_eq!(book.recurring_balance("acc_daily", &m).unwrap(), 400_000);
+    assert_eq!(book.projected_carryover("acc_daily", &m).unwrap(), 200_000);
+}

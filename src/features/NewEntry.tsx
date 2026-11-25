@@ -1,7 +1,7 @@
 import { t } from "../lib/i18n";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useBootstrap, useInvalidateAll } from "../lib/queries";
+import { useBootstrap, useInvalidateAll, useRealization } from "../lib/queries";
 import { api, errorMessage } from "../lib/ipc";
 import { addMonths, currentMonthStr, monthLabel, todayStr, yuan } from "../lib/format";
 import type { Pool, TagRuleView } from "../lib/types";
@@ -19,7 +19,7 @@ import {
 } from "../components/ui";
 import { cls } from "../lib/format";
 
-type Tab = "spot" | "futures" | "accrual" | "transfer" | "income" | "opening";
+type Tab = "spot" | "futures" | "accrual" | "transfer" | "income" | "opening" | "realize";
 
 const TABS: { key: Tab; label: string; hint: string }[] = [
   { key: "spot", label: "现货", hint: "即时消费或未来一次性" },
@@ -28,6 +28,7 @@ const TABS: { key: Tab; label: string; hint: string }[] = [
   { key: "transfer", label: "转账", hint: "账户间、池间划转" },
   { key: "income", label: "收入", hint: "外部资金流入" },
   { key: "opening", label: "期初", hint: "账户初始余额" },
+  { key: "realize", label: "兑现", hint: "规律预算到账，计入现金流" },
 ];
 
 interface MetaState {
@@ -220,7 +221,7 @@ export default function NewEntry() {
   return (
     <div className="grid grid-cols-3 gap-5">
       <div className="col-span-2 space-y-3">
-        <div className="flex gap-1">
+        <div className="grid grid-cols-3 gap-1.5">
           {TABS.map((tabItem) => (
             <button
               key={tabItem.key}
@@ -262,6 +263,8 @@ export default function NewEntry() {
           <TransferForm accounts={accounts} />
         ) : tab === "income" ? (
           <IncomeForm accounts={accounts} />
+        ) : tab === "realize" ? (
+          <RealizeForm accounts={accounts} />
         ) : (
           <OpeningForm accounts={accounts} />
         )}
@@ -1029,6 +1032,89 @@ function OpeningForm({ accounts }: { accounts: { id: string; name: string }[] })
       <div className="flex justify-end">
         <Button variant="primary" onClick={submit} disabled={busy}>
           {t("保存期初")}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function RealizeForm({ accounts }: { accounts: { id: string; name: string }[] }) {
+  const invalidate = useInvalidateAll();
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+  const [month, setMonth] = useState(currentMonthStr());
+  const [amount, setAmount] = useState(0);
+  const [date, setDate] = useState(todayStr());
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const rep = useRealization(month, month);
+  const row = rep.data?.byAccount.find((a) => a.accountId === accountId);
+  const quota = row?.quota ?? 0;
+  const realized = row?.realized ?? 0;
+  const left = Math.max(0, quota - realized);
+  const over = amount > left;
+
+  async function submit() {
+    if (!accountId) return toast(t("请选择账户"), "error");
+    if (amount <= 0) return toast(t("金额必须大于 0"), "error");
+    setBusy(true);
+    try {
+      await api.createRealize({ accountId, month, amount, date, note: note || null });
+      toast(t("兑现已记录"), "success");
+      invalidate();
+      setAmount(0);
+      setNote("");
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="card-pad space-y-3">
+      <div className="rounded border border-sky-800/50 bg-sky-950/20 px-3 py-2 text-[11px] leading-relaxed text-sky-200">
+        {t("规律预算在月初记为「应收」收入；这里记录它真正到账的部分。兑现只进现金流，不改变可花额度，累计不能超过当月额度，少兑现的部分算「欠兑现」。")}
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        <Field label={t("账户")} required>
+          <AccountSelect value={accountId} onChange={setAccountId} accounts={accounts} />
+        </Field>
+        <Field label={t("预算月")} required hint={t("要兑现哪个月的规律预算")}>
+          <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+        </Field>
+        <Field label={t("兑现金额")} required hint={t("本月剩余可兑现 {{x}}", { x: yuan(left) })}>
+          <MoneyInput value={amount} onChange={setAmount} />
+        </Field>
+        <Field label={t("到账日期")} required>
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+      </div>
+      <div className="flex items-center gap-4 text-[11px]">
+        <span className="text-slate-500">
+          {t("额度 {{q}} · 已兑现 {{r}} · 未兑现 {{u}}", {
+            q: yuan(quota),
+            r: yuan(realized),
+            u: yuan(left),
+          })}
+        </span>
+        {over && <span className="text-rose-400">{t("超出剩余可兑现额度")}</span>}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="ml-auto"
+          onClick={() => setAmount(left)}
+          disabled={left <= 0}
+        >
+          {t("填入剩余额度")}
+        </Button>
+      </div>
+      <Field label={t("备注")}>
+        <Input value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+      <div className="flex justify-end">
+        <Button variant="primary" onClick={submit} disabled={busy || over || amount <= 0}>
+          {busy ? t("保存中…") : t("保存兑现")}
         </Button>
       </div>
     </Card>

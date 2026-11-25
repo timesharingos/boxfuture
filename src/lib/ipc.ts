@@ -5,7 +5,7 @@ import type {
   BudgetRow,
   CapacityReport,
   CashReport,
-  ClosedPeriod,
+  RealizeReport,  ClosedPeriod,
   CreatedEvent,
   EventDetail,
   EventView,
@@ -82,6 +82,11 @@ export const api = {
     call<CreatedEvent>("create_income", { input }),
   createOpening: (input: Record<string, unknown>) =>
     call<CreatedEvent>("create_opening", { input }),
+  createRealize: (input: Record<string, unknown>) =>
+    call<CreatedEvent>("create_realize", { input }),
+  undoRealize: (eventId: string) => call<CreatedEvent>("undo_realize", { eventId }),
+  reportRealization: (from: string, to: string) =>
+    call<RealizeReport>("report_realization", { from, to }),
   reverse: (input: Record<string, unknown>) =>
     call<CreatedEvent>("reverse", { input }),
 

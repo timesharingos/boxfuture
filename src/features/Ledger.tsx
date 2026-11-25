@@ -49,6 +49,7 @@ const KINDS = [
   { value: "reversal", label: "冲销" },
   { value: "opening", label: "期初" },
   { value: "quota_grant", label: "预算注入" },
+  { value: "budget_realize", label: "预算兑现" },
   { value: "period_close", label: "月结" },
 ];
 
@@ -399,6 +400,23 @@ function EventDrawer({ id, onClose }: { id: string; onClose: () => void }) {
             {canReverse && (
               <Button size="sm" variant="warn" onClick={() => setAction("reverse")}>
                 {t("冲销")}
+              </Button>
+            )}
+            {e.kind === "budget_realize" && (
+              <Button
+                size="sm"
+                variant="warn"
+                onClick={async () => {
+                  try {
+                    await api.undoRealize(e.id);
+                    toast(t("已撤回该笔兑现"), "success");
+                    onClose();
+                  } catch (err) {
+                    toast(errorMessage(err), "error");
+                  }
+                }}
+              >
+                {t("撤回兑现")}
               </Button>
             )}
             {e.kind === "futures_order" && e.status !== "reversed" && (
