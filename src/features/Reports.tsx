@@ -1,4 +1,4 @@
-﻿import { t } from "../lib/i18n";
+import { t } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { useBudget, useCapacity, useCash, useHabit, usePnl, useRealization } from "../lib/queries";
 import { addMonths, cls, isFutureMonth, monthLabel, pct, shortMonth, yuan } from "../lib/format";

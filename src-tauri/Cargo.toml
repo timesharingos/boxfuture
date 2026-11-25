@@ -1,6 +1,6 @@
 [package]
 name = "boxfuture"
-version = "0.1.0"
+version = "0.2.0"
 description = "Accrual-based personal ledger with dual budget pools"
 authors = ["boxfuture"]
 edition = "2021"
